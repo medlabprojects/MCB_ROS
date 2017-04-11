@@ -18,9 +18,6 @@ volatile bool motorSelectLedState = false;
 enum CTRLswitchState { local, remote };
 volatile CTRLswitchState stateCTRL;
 
-// FSM
-//enum MCBstate { statePowerUp, stateLocalIdle, stateLocalControl, stateRosInit, stateRosIdle, stateRosControl };
-
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
 beginner_tutorials::EncoderMessage enc_msg;
@@ -111,15 +108,13 @@ MCBstate LocalIdle(void)
 	MotorBoard.disableAllAmps();
 	timerPid.end();
 
-
-	bool gainsSet = false;
 	uint32_t holdTime = 2000; // [ms] how long buttons must be held before function returns
 	uint32_t timeButtonsPressed = 0; // [ms] how long buttons have been held
 	uint32_t timeStart = 0;
 	MotorBoard.setLEDG(false); // turn off green LEDs
 
 	// wait until gains have been set via serial OR user overrides by holding buttons
-	while (!gainsSet && (stateCTRL == local) ) {
+	while (stateCTRL == local) {
 		// check for serial commands
 
 
@@ -170,7 +165,7 @@ MCBstate LocalIdle(void)
 		}
 		else {
 			// user override -> use default gains and current limits
-			gainsSet = true;
+			break;
 		}
 	}
 
