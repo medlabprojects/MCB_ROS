@@ -45,10 +45,10 @@
     <ClInclude Include="WiznetUDP.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="__vm\.MCB_ROS.vsarduino.h">
+    <ClInclude Include="MCB_FSM.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MCB_FSM.h">
+    <ClInclude Include="__vm\.MCB_ROS.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

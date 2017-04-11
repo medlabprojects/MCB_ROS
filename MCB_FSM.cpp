@@ -47,6 +47,7 @@ volatile uint32_t countStepLocalControl = 500; // [counts] step size for each up
 
 MCBstate stepStateMachine(MCBstate stateNext) 
 {
+	
 	switch (stateNext)
 	{
 	case statePowerUp:
@@ -112,11 +113,26 @@ MCBstate LocalIdle(void)
 	uint32_t timeButtonsPressed = 0; // [ms] how long buttons have been held
 	uint32_t timeStart = 0;
 	MotorBoard.setLEDG(false); // turn off green LEDs
+	bool configFinished = false;
 
 	// wait until gains have been set via serial OR user overrides by holding buttons
-	while (stateCTRL == local) {
+	while ((stateCTRL == local) && !configFinished) {
 		// check for serial commands
+		if (Serial.available() > 0) {
+			char cmd = Serial.read();
 
+			// TO DO: add other commands
+			switch (cmd) {
+			case 'r':
+			case 'R': // 'run' command
+				Serial.println("Command = 'Run'");
+				configFinished = true;
+				break;
+
+			default:
+				Serial.println("Command not recognized");
+			}
+		}
 
 		// check buttons
 		if (timeButtonsPressed < holdTime)
@@ -165,11 +181,12 @@ MCBstate LocalIdle(void)
 		}
 		else {
 			// user override -> use default gains and current limits
-			break;
+			configFinished = true;
 		}
 	}
 
 	// initialize motors
+	Serial.println("Initializing Motors");
 	for (int ii = 0; ii < numberOfModules; ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
 		MotorBoard.setCount(ii, countDesired[ii]);
@@ -215,19 +232,25 @@ MCBstate LocalControl()
 		// check serial for commands
 		if (Serial.available()) 
 		{
-			// stop checking buttons
-			timerLocalControl.end();
-			timerMotorSelectLed.end();
+			char cmd = Serial.read();
+			if ((cmd == 'x') || (cmd == 'X'))  // 'stop' command
+			{
+				Serial.println("'Stop' command received");
+				// stop checking buttons
+				timerLocalControl.end();
+				timerMotorSelectLed.end();
 
-			// power off motors and disable PID controller
-			MotorBoard.disableAllAmps();
-			timerPid.end();
+				// power off motors and disable PID controller
+				MotorBoard.disableAllAmps();
+				timerPid.end();
 
-			// turn off green LEDs
-			MotorBoard.setLEDG(LOW);
+				// turn off green LEDs
+				MotorBoard.setLEDG(LOW);
 
-			// return to Local Idle state to process command
-			return stateLocalIdle;
+				// return to Local Idle state to process command
+				return stateLocalIdle;
+			}
+			
 		}
 	}
 
@@ -254,12 +277,17 @@ MCBstate RosInit()
 	nh.initNode();
 
 	// repeatedly attempt to setup the hardware, loop on fail, stop on success
-	while (nh.getHardware()->error() < 0) {
+	while ((nh.getHardware()->error() < 0) && (stateCTRL == remote)) {
 		Serial.print("WIZnet eror = ");
 		Serial.println(nh.getHardware()->error());
 
 		nh.initNode();
 	}
+
+	if (stateCTRL == local) {
+		return stateLocalIdle;
+	}
+
 	Serial.println("Success!");
 
 	// initialize ROS connection
