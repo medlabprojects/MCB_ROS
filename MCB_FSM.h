@@ -24,6 +24,7 @@ Changelog-
 #include <Ethernet.h>
 #include "WiznetHardware.h"
 #include <beginner_tutorials/EncoderMessage.h>
+#include <std_srvs\SetBool.h>
 
 // Motor Control Board
 void motorSelectLedCallback(void);
@@ -44,6 +45,7 @@ void timerPidCallback(void);
 
 // ROS
 void timerRosCallback(void);
+void srvEnableMCB(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res);
 
 // Local Control
 void timerLocalControlCallback(void);

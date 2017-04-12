@@ -15,6 +15,7 @@
 #include <Ethernet.h>
 #include "WiznetHardware.h" 
 #include <beginner_tutorials/EncoderMessage.h>
+#include <std_srvs\SetBool.h>
 
 
 MCBstate nextState;

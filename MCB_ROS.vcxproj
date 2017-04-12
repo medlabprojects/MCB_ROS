@@ -105,4 +105,9 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties VM.DebugVariablesWindow.ColumnVisibleVariableValueMin="1" VM.DebugVariablesWindow.ColumnVisibleVariableValueMax="0" />
+    </VisualStudio>
+  </ProjectExtensions>
 </Project>

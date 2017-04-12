@@ -6,6 +6,7 @@
 #include <Ethernet.h>
 #include "WiznetHardware.h" 
 #include <beginner_tutorials/EncoderMessage.h>
+#include <std_srvs\SetBool.h>
 
 // GLOBAL VARIABLES
 // Motor Control Board
@@ -15,8 +16,10 @@ float maxMotorAmps = 1.0;
 int8_t currentMotorSelected = 0; // for manual control using Up/Down buttons
 IntervalTimer timerMotorSelectLed;
 volatile bool motorSelectLedState = false;
+MCBstate stateCurrent;
 enum CTRLswitchState { local, remote };
 volatile CTRLswitchState stateCTRL;
+bool ROSenable = false; // ROS must set this true via 'enableMCB_srv' to control motors
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
@@ -24,6 +27,7 @@ beginner_tutorials::EncoderMessage enc_msg;
 void messageEnc(const beginner_tutorials::EncoderMessage& enc_cmd);
 ros::Publisher encoder_publisher("enc", &enc_msg);
 ros::Subscriber<beginner_tutorials::EncoderMessage> sub_enc("enc_cmd", &messageEnc);
+ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srv_enable("enableMCB_srv", &srvEnableMCB);
 
 // PID Controller
 IntervalTimer timerPid; // PID controller timer interrupt
@@ -76,6 +80,8 @@ MCBstate stepStateMachine(MCBstate stateNext)
 
 MCBstate PowerUP(void)
 {
+	stateCurrent = statePowerUp;
+
 	// start serial port
 	Serial.begin(115200);
 
@@ -103,6 +109,8 @@ MCBstate PowerUP(void)
 
 MCBstate LocalIdle(void)
 {
+	stateCurrent = stateLocalIdle;
+
 	Serial.println("\nEntering Local Idle State");
 
 	// ensure amps are off and controller is not running
@@ -205,6 +213,8 @@ MCBstate LocalIdle(void)
 
 MCBstate LocalControl()
 {
+	stateCurrent = stateLocalControl;
+
 	Serial.println("\nEntering Local Control State");
 
 	// set desired motor position to current position (prevents unexpected movement)
@@ -270,6 +280,8 @@ MCBstate LocalControl()
 
 MCBstate RosInit()
 {
+	stateCurrent = stateRosInit;
+
 	Serial.println("\nEntering ROS Initialization state");
 
 	// set up Wiznet and connect to ROS server
@@ -294,6 +306,7 @@ MCBstate RosInit()
 	Serial.print("Connecting to ROS Network ... ");
 	nh.advertise(encoder_publisher);
 	nh.subscribe(sub_enc);
+	nh.advertiseService(srv_enable);
 	while (!nh.connected() && (stateCTRL == remote)) {
 		nh.spinOnce();
 	} // wait until connection established or CTRL switched to 'local'
@@ -344,12 +357,15 @@ MCBstate RosInit()
 
 MCBstate RosIdle()
 {
-	Serial.println("\nEntering ROS Idle state");
+	stateCurrent = stateRosIdle;
 
-	// wait for ROS start command via service call
-	//while ( && (stateCTRL == remote)) {
-	//	nh.spinOnce();
-	//}
+	Serial.println("\nEntering ROS Idle state");
+	Serial.println("waiting for enable signal via enableMCB_srv");
+
+	// wait for ROS enable command via service call
+	while (!ROSenable && (stateCTRL == remote)) {
+		nh.spinOnce();
+	}
 
 	if (!nh.connected()) {
 		return stateRosInit;
@@ -366,6 +382,8 @@ MCBstate RosIdle()
 
 MCBstate RosControl()
 {
+	stateCurrent = stateRosControl;
+
 	Serial.println("\nEntering ROS Control state");
 
 	// set desired motor position to current position (prevents unexpected movement)
@@ -384,8 +402,16 @@ MCBstate RosControl()
 	// start ROS update timer
 	timerRos.begin(timerRosCallback, timeStepRos);
 
-	// loop until disconnected OR ROS 'stop' command OR CTRL switched to 'local'
-	while (nh.connected() && (stateCTRL == remote));
+	// loop until disconnected OR ROS 'disable' command OR CTRL switched to 'local'
+	while (ROSenable && nh.connected() && (stateCTRL == remote)) {
+		//MotorBoard.toggleLEDG(0);
+		//if (!nh.connected()) {
+		//	MotorBoard.toggleLEDG(1);
+		//	break;
+		//}
+	}
+
+	//while (nh.getHardware()->isConnected() && (stateCTRL == remote));
 
 	// power off motors, disable PID controller, and stop ROS timer
 	MotorBoard.disableAllAmps();
@@ -416,7 +442,7 @@ void timerPidCallback(void)
 	noInterrupts(); // disable all interrupts to ensure this process completes sequentially
 
 	MotorBoard.stepPID();
-
+	
 	interrupts();
 }
 
@@ -434,9 +460,10 @@ void timerRosCallback(void)
 	enc_msg.enc5 = MotorBoard.getCount(5);
 	encoder_publisher.publish(&enc_msg);
 
-	nh.spinOnce();
+	int timeout = nh.spinOnce();
 
 	interrupts();
+
 }
 
 void messageEnc(const beginner_tutorials::EncoderMessage& enc_cmd)
@@ -499,25 +526,33 @@ void timerLocalControlCallback(void)
 	}
 }
 
-void initGlobals(void) {
-	// Motor Control Board
-	maxMotorAmps = 1.0;
-	currentMotorSelected = 0; // for manual control using Up/Down buttons
-	motorSelectLedState = false;
-
-	// PID Controller
-	memset(countDesired, 0, sizeof(countDesired));
-	frequencyPid = 1000.0; // [Hz]
-	timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
-	kp = 0.0004, ki = 0.000002, kd = 0.01; // work well for 1 kHz
-	// kp = 0.0002, ki = 0.000001, kd = 0.01; // work ok for 2 kHz
-
-	// ROS
-	frequencyRos = 500.0; // [Hz]
-	timeStepRos = uint32_t(1000000.0 / frequencyRos); // [us]
-
-	  // Local Control
-	frequencyLocalControl = 100.0; // [Hz]
-	timeStepLocalControl = uint32_t(1000000.0 / frequencyLocalControl); // [us]
-	countStepLocalControl = 500; // [counts] step size for each up/down button press
+void srvEnableMCB(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) {
+	if (req.data) { // 'run' command
+		if (ROSenable) {
+			res.success = true;
+			res.message = "Note: motor control already enabled";
+		}
+		else {
+			if (stateCurrent == stateRosIdle) {
+				ROSenable = true;
+				res.success = true;
+				res.message = "motor control enabled";
+			}
+			else {
+				res.success = false;
+				res.message = "Error: MCB not in ROS Idle state";
+			}
+		}
+	}
+	else { // 'stop' command
+		ROSenable = false;
+		if (stateCurrent == stateRosControl) {
+			res.success = true;
+			res.message = "motor control disabled";
+		}
+		else {
+			res.success = false;
+			res.message = "Error: MCB not in ROS Control state";
+		}
+	}
 }

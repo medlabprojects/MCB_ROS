@@ -9,24 +9,90 @@
       <VCCodeMacros />
     </VCCodeModel>
     <BreakPoints>
-      <BreakPoint Index="1" Name="MCB_FSM.cpp, line 50" Id="e4ec1801-1c28-4d29-b551-ecbbe8755b56" Enabled="0" Message="" MessageTextType="2" PreProcessedMessage="" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="50" FileColumn="1" FunctionName="stepStateMachine(MCBstate stateNext)" FunctionLineOffset="2" FunctionColumnOffset="1" HitCountTarget="1" HitCountType="1" Language="C++" LocationType="3" Tag="&lt;vmbp Id='e4ec1801-1c28-4d29-b551-ecbbe8755b56'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="1">
-        <Source>43	float frequencyLocalControl = 100.0; // [Hz]
-44	uint32_t timeStepLocalControl = uint32_t(1000000.0 / frequencyLocalControl); // [us]
-45	volatile uint32_t countStepLocalControl = 500; // [counts] step size for each up/down button press
-46	
-47	
-48	MCBstate stepStateMachine(MCBstate stateNext) 
-49	{
---&gt;50		
-51		switch (stateNext)
-52		{
-53		case statePowerUp:
-54			return PowerUP();
-55	
-56		case stateLocalIdle:
-57			return LocalIdle();
-58	
-59		case stateLocalControl:
+      <BreakPoint Index="1" Name="MCB_FSM.cpp, line 54" Id="e4ec1801-1c28-4d29-b551-ecbbe8755b56" Enabled="0" Message="" MessageTextType="2" PreProcessedMessage="" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="54" FileColumn="1" FunctionName="stepStateMachine(MCBstate stateNext)" FunctionLineOffset="2" FunctionColumnOffset="1" HitCountTarget="1" HitCountType="1" Language="C++" LocationType="3" Tag="&lt;vmbp Id='e4ec1801-1c28-4d29-b551-ecbbe8755b56'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="1">
+        <Source>47	float frequencyLocalControl = 100.0; // [Hz]
+48	uint32_t timeStepLocalControl = uint32_t(1000000.0 / frequencyLocalControl); // [us]
+49	volatile uint32_t countStepLocalControl = 500; // [counts] step size for each up/down button press
+50	
+51	
+52	MCBstate stepStateMachine(MCBstate stateNext) 
+53	{
+--&gt;54		
+55		switch (stateNext)
+56		{
+57		case statePowerUp:
+58			return PowerUP();
+59	
+60		case stateLocalIdle:
+61			return LocalIdle();
+62	
+63		case stateLocalControl:
+</Source>
+      </BreakPoint>
+      <BreakPoint Index="2" Name="MCB_FSM.cpp, line 466" Id="059ac089-5a5e-420a-9a8c-01c089bde831" Enabled="0" Message="{timeout}" MessageTextType="2" PreProcessedMessage="{0}" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="466" FileColumn="1" FunctionName="timerRosCallback(void)" FunctionLineOffset="17" FunctionColumnOffset="1" HitCountTarget="75" HitCountType="4" Language="C++" LocationType="3" Tag="&lt;vmbp Id='059ac089-5a5e-420a-9a8c-01c089bde831'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="0">
+        <Source>459		enc_msg.enc4 = MotorBoard.getCount(4);
+460		enc_msg.enc5 = MotorBoard.getCount(5);
+461		encoder_publisher.publish(&amp;enc_msg);
+462	
+463		int timeout = nh.spinOnce();
+464	
+465		interrupts();
+--&gt;466	
+467	}
+468	
+469	void messageEnc(const beginner_tutorials::EncoderMessage&amp; enc_cmd)
+470	{
+471		// set desired motor positions with values received over ROS
+472		// TO DO: change based on numberOfModules
+473		MotorBoard.setCount(0, enc_cmd.enc0);
+474		MotorBoard.setCount(1, enc_cmd.enc1);
+475		MotorBoard.setCount(2, enc_cmd.enc2);
+</Source>
+        <MessageVariables>
+          <MessageVariable Name="timeout" Index="1" />
+        </MessageVariables>
+      </BreakPoint>
+      <BreakPoint Index="3" Name="MCB_FSM.cpp, line 413" Id="5b550445-86af-42b0-98ba-ee9ddfce34f2" Enabled="0" Message="{nh.connected()}" MessageTextType="2" PreProcessedMessage="{0}" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="413" FileColumn="1" FunctionName="RosControl()" FunctionLineOffset="24" FunctionColumnOffset="1" HitCountTarget="1" HitCountType="1" Language="C++" LocationType="3" Tag="&lt;vmbp Id='5b550445-86af-42b0-98ba-ee9ddfce34f2'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="1">
+        <Source>406		while (ROSenable &amp;&amp; nh.connected() &amp;&amp; (stateCTRL == remote)) {
+407			//MotorBoard.toggleLEDG(0);
+408			//if (!nh.connected()) {
+409			//	MotorBoard.toggleLEDG(1);
+410			//	break;
+411			//}
+412		}
+--&gt;413	
+414		//while (nh.getHardware()-&gt;isConnected() &amp;&amp; (stateCTRL == remote));
+415	
+416		// power off motors, disable PID controller, and stop ROS timer
+417		MotorBoard.disableAllAmps();
+418		timerPid.end();
+419		timerRos.end();
+420	
+421		if (!nh.connected()) {
+422			nh.getHardware()-&gt;error() = WiznetHardware::ERROR_CONNECT_FAIL;
+</Source>
+        <MessageVariables>
+          <MessageVariable Name="nh.connected()" Index="1" />
+        </MessageVariables>
+      </BreakPoint>
+      <BreakPoint Index="4" Name="MCB_FSM.cpp, line 404" Id="bcfec4c7-df0c-4c93-ad4b-a9abbcece052" Enabled="0" Message="" MessageTextType="2" PreProcessedMessage="" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="404" FileColumn="1" FunctionName="RosControl()" FunctionLineOffset="19" FunctionColumnOffset="1" HitCountTarget="1" HitCountType="1" Language="C++" LocationType="3" Tag="&lt;vmbp Id='bcfec4c7-df0c-4c93-ad4b-a9abbcece052'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="1">
+        <Source>397		MotorBoard.enableAllAmps();
+398	
+399		// start PID controllers
+400		timerPid.begin(timerPidCallback, timeStepPid);
+401	
+402		// start ROS update timer
+403		timerRos.begin(timerRosCallback, timeStepRos);
+--&gt;404	
+405		// loop until disconnected OR ROS 'stop' command OR CTRL switched to 'local'
+406		while (ROSenable &amp;&amp; nh.connected() &amp;&amp; (stateCTRL == remote)) {
+407			//MotorBoard.toggleLEDG(0);
+408			//if (!nh.connected()) {
+409			//	MotorBoard.toggleLEDG(1);
+410			//	break;
+411			//}
+412		}
+413	
 </Source>
       </BreakPoint>
     </BreakPoints>

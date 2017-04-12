@@ -82,6 +82,9 @@ public:
     return my_error;
   }
 
+  uint8_t status() {
+	 return my_client.status();
+  }
 };
 
 #endif
