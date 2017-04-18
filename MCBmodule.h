@@ -76,7 +76,7 @@ private:
 	// PID
 	PID_f32 PID_; // PID controller, 32-bit float version
 	int32_t countLast_ = 0;
-	int32_t countDesired_ = 0;
+	volatile int32_t countDesired_ = 0;
 	int32_t	countError_ = 0;
 	float effort_ = 0; // unsaturated, computed effort from controller in Amps
 	//float32_t	kp_ = 0.0;	// proportional gain

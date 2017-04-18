@@ -5,10 +5,11 @@
 #include <ros.h>
 #include <Ethernet.h>
 #include "WiznetHardware.h" 
-#include <beginner_tutorials/EncoderMessage.h>
+#include <beginner_tutorials/msgEncoder.h>
 #include <std_srvs\SetBool.h>
 
-// GLOBAL VARIABLES
+/****************** GLOBALS *********************/
+
 // Motor Control Board
 int8_t numberOfModules = 6; // number of modules (i.e. motors) plugged into this board
 MCB MotorBoard(numberOfModules);	// construct motor control board
@@ -23,11 +24,10 @@ bool ROSenable = false; // ROS must set this true via 'enableMCB_srv' to control
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
-beginner_tutorials::EncoderMessage enc_msg;
-void messageEnc(const beginner_tutorials::EncoderMessage& enc_cmd);
-ros::Publisher encoder_publisher("enc", &enc_msg);
-ros::Subscriber<beginner_tutorials::EncoderMessage> sub_enc("enc_cmd", &messageEnc);
-ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srv_enable("enableMCB_srv", &srvEnableMCB);
+beginner_tutorials::msgEncoder msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
+ros::Publisher pubEncoderCurrent("topicEncoderCurrent", &msgEncoderCurrent); // publisher for sending out updated motor positions
+ros::Subscriber<beginner_tutorials::msgEncoder> subEncoderCommand("topicEncoderCommand", &subEncoderCommandCallback); // subscriber for new motor commands
+ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands
 
 // PID Controller
 IntervalTimer timerPid; // PID controller timer interrupt
@@ -194,13 +194,14 @@ MCBstate LocalIdle(void)
 	}
 
 	// initialize motors
-	Serial.println("Initializing Motors");
+	Serial.print("Initializing Motors ... ");
 	for (int ii = 0; ii < numberOfModules; ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
 		MotorBoard.setCount(ii, countDesired[ii]);
 		MotorBoard.setMaxAmps(ii, maxMotorAmps);
 	}
-	
+	Serial.println("done");
+
 	// advance based on CTRL switch position
 	switch (stateCTRL) {
 	case local:
@@ -304,9 +305,9 @@ MCBstate RosInit()
 
 	// initialize ROS connection
 	Serial.print("Connecting to ROS Network ... ");
-	nh.advertise(encoder_publisher);
-	nh.subscribe(sub_enc);
-	nh.advertiseService(srv_enable);
+	nh.advertise(pubEncoderCurrent);
+	nh.subscribe(subEncoderCommand);
+	nh.advertiseService(srvEnableMCB);
 	while (!nh.connected() && (stateCTRL == remote)) {
 		nh.spinOnce();
 	} // wait until connection established or CTRL switched to 'local'
@@ -346,6 +347,15 @@ MCBstate RosInit()
 		Serial.println(maxMotorAmps);
 	}
 
+	// initialize motors
+	Serial.print("Initializing Motors ... ");
+	for (int ii = 0; ii < numberOfModules; ii++) {
+		MotorBoard.setGains(ii, kp, ki, kd);
+		MotorBoard.setCount(ii, countDesired[ii]);
+		MotorBoard.setMaxAmps(ii, maxMotorAmps);
+	}
+	Serial.println("done");
+
 	switch (stateCTRL) {
 	case local:
 		return stateLocalIdle;
@@ -363,7 +373,7 @@ MCBstate RosIdle()
 	Serial.println("waiting for enable signal via enableMCB_srv");
 
 	// wait for ROS enable command via service call
-	while (!ROSenable && (stateCTRL == remote)) {
+	while (!ROSenable && nh.connected() && (stateCTRL == remote)) {
 		nh.spinOnce();
 	}
 
@@ -404,7 +414,8 @@ MCBstate RosControl()
 
 	// loop until disconnected OR ROS 'disable' command OR CTRL switched to 'local'
 	while (ROSenable && nh.connected() && (stateCTRL == remote)) {
-		//MotorBoard.toggleLEDG(0);
+		//MotorBoard.getMaxAmps(0);
+		MotorBoard.toggleLEDG(0);
 		//if (!nh.connected()) {
 		//	MotorBoard.toggleLEDG(1);
 		//	break;
@@ -417,6 +428,7 @@ MCBstate RosControl()
 	MotorBoard.disableAllAmps();
 	timerPid.end();
 	timerRos.end();
+	ROSenable = false;
 
 	if (!nh.connected()) {
 		nh.getHardware()->error() = WiznetHardware::ERROR_CONNECT_FAIL;
@@ -441,8 +453,12 @@ void timerPidCallback(void)
 {
 	noInterrupts(); // disable all interrupts to ensure this process completes sequentially
 
+	MotorBoard.setLEDG(2, HIGH);
+	
 	MotorBoard.stepPID();
 	
+	MotorBoard.setLEDG(2, LOW);
+
 	interrupts();
 }
 
@@ -450,32 +466,36 @@ void timerRosCallback(void)
 {
 	noInterrupts(); // disable all interrupts to ensure this process completes sequentially
 
-	// assemble enc_msg and publish()
-	// TO DO: change based on numberOfModules
-	enc_msg.enc0 = MotorBoard.getCount(0);
-	enc_msg.enc1 = MotorBoard.getCount(1);
-	enc_msg.enc2 = MotorBoard.getCount(2);
-	enc_msg.enc3 = MotorBoard.getCount(3);
-	enc_msg.enc4 = MotorBoard.getCount(4);
-	enc_msg.enc5 = MotorBoard.getCount(5);
-	encoder_publisher.publish(&enc_msg);
+	MotorBoard.setLEDG(1, HIGH);
 
-	int timeout = nh.spinOnce();
+	// assemble encoder positions message and publish()
+	for (int ii = 0; ii < numberOfModules; ii++) {
+		msgEncoderCurrent.val[ii] = MotorBoard.getCount(ii);
+	}
+	pubEncoderCurrent.publish(&msgEncoderCurrent);
+
+	nh.spinOnce();
+
+	MotorBoard.setLEDG(1, LOW);
 
 	interrupts();
 
 }
 
-void messageEnc(const beginner_tutorials::EncoderMessage& enc_cmd)
+void subEncoderCommandCallback(const beginner_tutorials::msgEncoder& encCommands)
 {
+	MotorBoard.setLEDG(3, HIGH);
+
 	// set desired motor positions with values received over ROS
-	// TO DO: change based on numberOfModules
-	MotorBoard.setCount(0, enc_cmd.enc0);
-	MotorBoard.setCount(1, enc_cmd.enc1);
-	MotorBoard.setCount(2, enc_cmd.enc2);
-	MotorBoard.setCount(3, enc_cmd.enc3);
-	MotorBoard.setCount(4, enc_cmd.enc4);
-	MotorBoard.setCount(5, enc_cmd.enc5);
+	for (int ii = 0; ii < numberOfModules; ii++) {
+		MotorBoard.setCount(ii, encCommands.val[ii]);
+	}
+	
+	//for (int ii = 0; ii < numberOfModules; ii++) {
+	//	MotorBoard.modules.at(ii).setCountDesired(encCommands.val[ii]);
+	//}
+
+	MotorBoard.setLEDG(3, LOW);
 }
 
 void motorSelectLedCallback(void)
@@ -526,7 +546,7 @@ void timerLocalControlCallback(void)
 	}
 }
 
-void srvEnableMCB(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) {
+void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) {
 	if (req.data) { // 'run' command
 		if (ROSenable) {
 			res.success = true;
