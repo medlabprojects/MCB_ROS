@@ -1,21 +1,3 @@
-/*=========================================================================//
-
-	LS7366R Class
-
-	This class is used to configure and use the LS7366R Quadrature Coutner
-
-	Designed for use with Teensy 3.X and Motor Control Board (Rev 1.X)
-
-
-	Trevor Bruns
-
-	Changelog-
-	2/11/16: Initial creation
-	3/14/17: Changed names to conform to convention
-			 Removed unused code
-
-//=========================================================================*/
-
 #include "LS7366R.h"
 #include "core_pins.h"
 #include <SPI.h>
@@ -29,18 +11,23 @@ LS7366R::LS7366R(uint8_t csPin)
 	 digitalWriteFast(csPin, HIGH);
 }
 
-void LS7366R::init(void)
+bool LS7366R::init(void)
 {
 	// ensure SPI has been started
 	SPI.begin();
 
-	// Configure mode registers
+	// configure mode registers
 	write(WRITE_MDR0, QUAD_4X | COUNT_FREE | INDEX_NO);
 
-	write(WRITE_MDR1, SIZE_4 | CNT_ENABLE | NO_FLAGS);
-	
-	// Clear CNTR register
-	write(CLR_CNTR);
+    write(WRITE_MDR1, SIZE_4 | CNT_ENABLE | NO_FLAGS);
+
+	// clear CNTR register
+    write(CLR_CNTR);
+
+    // check status register to ensure init was successful
+    readStatus();
+    
+    return configured_;
 }
 
 uint8_t LS7366R::read(uint8_t opcode, uint8_t data_out)
@@ -88,7 +75,7 @@ void LS7366R::write(uint8_t opcode)
 	SPI.endTransaction();
 }
 
-int32_t LS7366R::count(void)
+int32_t LS7366R::getCount(void)
 {
 
 	uint8_uint32 count_temp;
@@ -109,9 +96,22 @@ int32_t LS7366R::count(void)
 	return (int32_t) count_temp.value;
 }
 
-uint8_t LS7366R::status(void)
+uint8_t LS7366R::readStatus(void)
 {
-	return read(READ_STR, 0x00);
+    uint8_t tmp = read(READ_STR, 0x00);
+
+    if ((tmp == 0x00) || (tmp == 0xFF)) { // STR will be read as 0x00 or 0xFF if not connected 
+        configured_ = false;
+    }
+    else {
+        configured_ = true;
+    }
+    return tmp;
+}
+
+bool LS7366R::isConfigured(void)
+{
+    return configured_;
 }
 
 LS7366R::~LS7366R(void)

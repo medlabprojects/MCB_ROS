@@ -5,14 +5,17 @@
 #include <ros.h>
 #include <Ethernet.h>
 #include "WiznetHardware.h" 
-#include <beginner_tutorials/msgEncoder.h>
-#include <std_srvs\SetBool.h>
+//#include <beginner_tutorials/msgEncoder.h>
+#include <beginner_tutorials/msgEncoderDesired.h>
+#include <beginner_tutorials/msgEncoderMeasuredDesired.h>
+#include <std_srvs/SetBool.h>
 
 /****************** GLOBALS *********************/
 
 // Motor Control Board
 int8_t numberOfModules = 6; // number of modules (i.e. motors) plugged into this board
-MCB MotorBoard(numberOfModules);	// construct motor control board
+int numberOfModulesDetected;
+MCB MotorBoard(numberOfModules); // construct motor control board
 float maxMotorAmps = 1.0;
 int8_t currentMotorSelected = 0; // for manual control using Up/Down buttons
 IntervalTimer timerMotorSelectLed;
@@ -24,9 +27,9 @@ bool ROSenable = false; // ROS must set this true via 'enableMCB_srv' to control
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
-beginner_tutorials::msgEncoder msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
+beginner_tutorials::msgEncoderMeasuredDesired msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 ros::Publisher pubEncoderCurrent("topicEncoderCurrent", &msgEncoderCurrent); // publisher for sending out updated motor positions
-ros::Subscriber<beginner_tutorials::msgEncoder> subEncoderCommand("topicEncoderCommand", &subEncoderCommandCallback); // subscriber for new motor commands
+ros::Subscriber<beginner_tutorials::msgEncoderDesired> subEncoderCommand("topicEncoderCommand", &subEncoderCommandCallback); // subscriber for new motor commands
 ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands
 
 // PID Controller
@@ -51,7 +54,6 @@ volatile uint32_t countStepLocalControl = 500; // [counts] step size for each up
 
 MCBstate stepStateMachine(MCBstate stateNext) 
 {
-	
 	switch (stateNext)
 	{
 	case statePowerUp:
@@ -74,7 +76,12 @@ MCBstate stepStateMachine(MCBstate stateNext)
 
 	default:
 		Serial.println("Error: Unrecognized State");
-		while (1);
+        while (1) {
+            MotorBoard.setLEDG(HIGH);
+            delay(500);
+            MotorBoard.setLEDG(LOW);
+            delay(500);
+        }
 	}
 }
 
@@ -86,16 +93,24 @@ MCBstate PowerUP(void)
 	Serial.begin(115200);
 
 	// initialize motor control board
-	Serial.print("Initializing Motor Control Board ... ");
-	MotorBoard.init();
+	Serial.println("\nInitializing Motor Control Board ... ");
+	numberOfModulesDetected = MotorBoard.init();
+    if (numberOfModulesDetected == -1) {
+        Serial.println("\nERROR: INCORRECT MODULE CONFIGURATION");
+        Serial.println("\nPower off and ensure there are no gaps between modules");
+        while (1) {
+            MotorBoard.setLEDG(HIGH);
+            delay(500);
+            MotorBoard.setLEDG(LOW);
+            delay(500);
+        }
+    }
+    Serial.print(numberOfModulesDetected);
+    Serial.println(" motor modules detected and configured");
 
 	// create pin change interrupt for CTRL switch
 	attachInterrupt(MotorBoard.pins.CTRL, CTRLswitchCallback, CHANGE);
-
-	// run callback once to initialize stateCTRL 
-	CTRLswitchCallback();
-
-	Serial.println("Success!");
+	CTRLswitchCallback(); // run once to initialize stateCTRL 
 
 	// advance based on CTRL switch position 
 	switch (stateCTRL) {
@@ -309,7 +324,9 @@ MCBstate RosInit()
 	nh.subscribe(subEncoderCommand);
 	nh.advertiseService(srvEnableMCB);
 	while (!nh.connected() && (stateCTRL == remote)) {
+        noInterrupts();
 		nh.spinOnce();
+        interrupts();
 	} // wait until connection established or CTRL switched to 'local'
 
 	if (stateCTRL == local) {
@@ -414,21 +431,17 @@ MCBstate RosControl()
 
 	// loop until disconnected OR ROS 'disable' command OR CTRL switched to 'local'
 	while (ROSenable && nh.connected() && (stateCTRL == remote)) {
-		//MotorBoard.getMaxAmps(0);
-		MotorBoard.toggleLEDG(0);
-		//if (!nh.connected()) {
-		//	MotorBoard.toggleLEDG(1);
-		//	break;
-		//}
+        interrupts();
+        // process interrupts calls here
+        noInterrupts();
 	}
-
-	//while (nh.getHardware()->isConnected() && (stateCTRL == remote));
 
 	// power off motors, disable PID controller, and stop ROS timer
 	MotorBoard.disableAllAmps();
 	timerPid.end();
 	timerRos.end();
 	ROSenable = false;
+    interrupts(); // now safe to re-enable since timer interrupts are stopped
 
 	if (!nh.connected()) {
 		nh.getHardware()->error() = WiznetHardware::ERROR_CONNECT_FAIL;
@@ -446,7 +459,9 @@ MCBstate RosControl()
 
 void CTRLswitchCallback(void)
 {
+    noInterrupts();
 	stateCTRL = (digitalReadFast(MotorBoard.pins.CTRL) ? local : remote);
+    interrupts();
 }
 
 void timerPidCallback(void)
@@ -470,7 +485,8 @@ void timerRosCallback(void)
 
 	// assemble encoder positions message and publish()
 	for (int ii = 0; ii < numberOfModules; ii++) {
-		msgEncoderCurrent.val[ii] = MotorBoard.getCount(ii);
+		msgEncoderCurrent.measured[ii] = MotorBoard.getCount(ii);
+        msgEncoderCurrent.desired[ii] = MotorBoard.modules.at(ii).getCountDesired();
 	}
 	pubEncoderCurrent.publish(&msgEncoderCurrent);
 
@@ -482,13 +498,13 @@ void timerRosCallback(void)
 
 }
 
-void subEncoderCommandCallback(const beginner_tutorials::msgEncoder& encCommands)
+void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encCommands)
 {
 	MotorBoard.setLEDG(3, HIGH);
 
 	// set desired motor positions with values received over ROS
 	for (int ii = 0; ii < numberOfModules; ii++) {
-		MotorBoard.setCount(ii, encCommands.val[ii]);
+		MotorBoard.setCount(ii, encCommands.desired[ii]);
 	}
 	
 	//for (int ii = 0; ii < numberOfModules; ii++) {

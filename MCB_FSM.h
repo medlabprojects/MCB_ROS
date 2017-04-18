@@ -23,7 +23,8 @@ Changelog-
 #include <ros.h>
 #include <Ethernet.h>
 #include "WiznetHardware.h"
-#include <beginner_tutorials/msgEncoder.h>
+#include <beginner_tutorials/msgEncoderDesired.h>
+#include <beginner_tutorials/msgEncoderMeasuredDesired.h>
 #include <std_srvs\SetBool.h>
 
 // Motor Control Board
@@ -45,7 +46,7 @@ void timerPidCallback(void);
 
 // ROS
 void timerRosCallback(void);
-void subEncoderCommandCallback(const beginner_tutorials::msgEncoder& encCommands); // callback for subscriber subEncoderCommand
+void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired & encCommands); // callback for subscriber subEncoderCommand
 void srvEnableCallback(const std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); // callback for service srvEnableMCB
 
 // Local Control

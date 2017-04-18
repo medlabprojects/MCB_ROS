@@ -29,22 +29,45 @@ MCBmodule::MCBmodule(uint8_t position)
 {
 }
 
-void MCBmodule::init(float kp, float ki, float kd)
+bool MCBmodule::init(float kp, float ki, float kd)
 {
-	ENC_.init(); // set up encoder IC (LS7366R)
-	PID_.init(kp, ki, kd); // set up PID controller
-	setStatus(MODULE_ENABLE);
+    bool configured = false;
+
+    // set up PID controller
+    PID_.init(kp, ki, kd); 
+
+    // set up encoder IC (LS7366R)
+    int maxAttempts = 5;
+    int attempts = 0;
+    while (attempts < maxAttempts) {
+        attempts++;
+        if (ENC_.init()) {
+            setStatus(MODULE_ENABLE);
+            configured = true;
+        }
+    }
+    return configured;
 }
 
-void MCBmodule::init(void)
+bool MCBmodule::init(void)
 {
+    bool configured = false;
 
-	ENC_.init(); // set up encoder IC (LS7366R)
+    // set up PID controller
+    PID_.init();
 
-	PID_.init(); // set up PID controller; gains all set to 0.0
-
-	setStatus(MODULE_ENABLE);
-
+    // set up encoder IC (LS7366R)
+    int maxAttempts = 5;
+    int attempts = 0;
+    while (attempts < maxAttempts) {
+        attempts++;
+        if (ENC_.init()) {
+            setStatus(MODULE_ENABLE);
+            configured = true;
+            break;
+        }
+    }
+    return configured;
 }
 
 int16_t MCBmodule::step(void)
@@ -127,7 +150,7 @@ int32_t MCBmodule::getCountDesired(void)
 int32_t MCBmodule::readCount(void)
 {
 	// read LS7366R
-	countLast_ = ENC_.count();
+	countLast_ = ENC_.getCount();
 
 	return countLast_;
 }

@@ -78,9 +78,12 @@ void MCB::waitForButtonHold(void)
 	delay(500); // for visual confirmation
 }
 
-void MCB::init(void)
+int MCB::init(void)
 // initializes all modules (to be called only after all addModule commands)
+// returns number of modules detected
+// returns -1 to indicate incorrect module configuration (i.e. not in order starting from first socket)
 {
+    int numberOfModulesDetected = 0;
 
 	// initialize MCB pins (if not already)
 	if (!isPinsInit) {
@@ -88,7 +91,6 @@ void MCB::init(void)
 		isPinsInit = true;
 	}
 	
-
 	// initialize encoder clock for LS7366R
 	si5351_.init(SI5351_CRYSTAL_LOAD_8PF, 0);
 	si5351_.set_freq(3000000000ULL, 0ULL, SI5351_CLK0); // Set CLK1 to output 30 MHz
@@ -98,11 +100,24 @@ void MCB::init(void)
 	// initialize SPI
 	SPI.begin();
 	
-	// create and initialize each module (along with each encoder IC)
-	for (uint8_t aa = 0; aa < numModules_; aa++)
+	// create and attempt to initialize each module (along with each encoder IC)
+	for (uint8_t ii = 0; ii < pins.maxNumBoards; ii++)
 	{
-		addModule(aa);
+		addModule(ii);
+
+        if (isModuleConfigured(ii)) {
+            numberOfModulesDetected++;
+        }
 	}
+
+    // check that all detected boards are in a row starting from the first socket (i.e. no gaps) 
+    for (uint8_t ii = 0; ii < numberOfModulesDetected; ii++)
+    {
+        if (!isModuleConfigured(ii))
+        {
+            return -1; // error: incorrect module configuration
+        }
+    }
 	
 	// initialize DACs
 	DAC_.beginTransfer();
@@ -125,14 +140,16 @@ void MCB::init(void)
 		DAC_.set(0); // Set output to 0 volts
 	}
 	DAC_.endTransfer();
+
+    return numberOfModulesDetected;
 }
 
 void MCB::addModule(uint8_t position)
 {
+    DACval_.push_back(0); // initialize DAC output values to 0
 	modules.push_back(MCBmodule(position)); // create new MCBmodule and add to storage vector
-	modules.at(position).init(); // initialize module
-
-	DACval_.push_back(0);   // initialize DAC output values to 0
+    moduleConfigured_.push_back(false);
+	moduleConfigured_.at(position) = modules.at(position).init(); // initialize modules
 }
 
 void MCB::enableAmp(uint8_t position)
@@ -297,7 +314,16 @@ bool MCB::isEverythingPressed(void)
 	else {
 		return false;
 	}
-	
+}
+
+BoolVec MCB::isModuleConfigured(void)
+{
+    return moduleConfigured_;
+}
+
+bool MCB::isModuleConfigured(uint8_t position)
+{
+    return moduleConfigured_.at(position);
 }
 
 MCB::~MCB(void)

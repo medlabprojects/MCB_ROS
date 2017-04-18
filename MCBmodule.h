@@ -31,8 +31,8 @@ public:
 	MCBmodule(uint8_t position);
 	~MCBmodule(void);
 	
-	void init(float kp, float ki, float kd); // initializes encoder/PID controller and enables module
-	void init(void); // ^^ except initializes with PID gains all set to 0.0
+	bool init(float kp, float ki, float kd); // initializes encoder/PID controller and enables module
+	bool init(void); // ^^ except initializes with PID gains all set to 0.0
 	void setStatus(bool status); // start or stop module (and thus, the associated motor)
 	bool getStatus(void); 
 

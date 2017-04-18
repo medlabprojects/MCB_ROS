@@ -8,55 +8,6 @@
     <VCCodeModel>
       <VCCodeMacros />
     </VCCodeModel>
-    <BreakPoints>
-      <BreakPoint Index="1" Name="MCB_FSM.cpp, line 497" Id="91b4789d-3e03-4319-8f15-1150106d7a15" Enabled="0" Message="{encCommands.val[0]} {MotorBoard.modules.at(0).getCountDesired()}" MessageTextType="2" PreProcessedMessage="{0} {1}" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="497" FileColumn="1" FunctionName="subEncoderCommandCallback(const beginner_tutorials::msgEncoder&amp; encCommands)" FunctionLineOffset="12" FunctionColumnOffset="1" HitCountTarget="30" HitCountType="4" Language="C++" LocationType="3" Tag="&lt;vmbp Id='91b4789d-3e03-4319-8f15-1150106d7a15'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="0">
-        <Source>490		for (int ii = 0; ii &lt; numberOfModules; ii++) {
-491			MotorBoard.setCount(ii, encCommands.val[ii]);
-492		}
-493		
-494		//for (int ii = 0; ii &lt; numberOfModules; ii++) {
-495		//	MotorBoard.modules.at(ii).setCountDesired(encCommands.val[ii]);
-496		//}
---&gt;497	
-498		MotorBoard.setLEDG(3, LOW);
-499	}
-500	
-501	void motorSelectLedCallback(void)
-502	{
-503		motorSelectLedState = !motorSelectLedState;
-504		MotorBoard.setLEDG(currentMotorSelected, motorSelectLedState);
-505	}
-506	
-</Source>
-        <MessageVariables>
-          <MessageVariable Name="encCommands.val[0]" Index="1" />
-          <MessageVariable Name="MotorBoard.modules.at(0).getCountDesired()" Index="2" />
-        </MessageVariables>
-      </BreakPoint>
-      <BreakPoint Index="2" Name="MCB_FSM.cpp, line 459" Id="1d1dd693-a830-43fd-a369-c5536c6469b1" Enabled="0" Message="{MotorBoard.modules.at(0).getEffort()} {MotorBoard.modules.at(0).getError()}" MessageTextType="2" PreProcessedMessage="{0} {1}" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb_fsm.cpp" FileLine="459" FileColumn="1" FunctionName="timerPidCallback(void)" FunctionLineOffset="7" FunctionColumnOffset="1" HitCountTarget="100" HitCountType="4" Language="C++" LocationType="3" Tag="&lt;vmbp Id='1d1dd693-a830-43fd-a369-c5536c6469b1'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="0">
-        <Source>452	void timerPidCallback(void)
-453	{
-454		noInterrupts(); // disable all interrupts to ensure this process completes sequentially
-455	
-456		MotorBoard.setLEDG(2, HIGH);
-457		
-458		MotorBoard.stepPID();
---&gt;459		
-460		MotorBoard.setLEDG(2, LOW);
-461	
-462		interrupts();
-463	}
-464	
-465	void timerRosCallback(void)
-466	{
-467		noInterrupts(); // disable all interrupts to ensure this process completes sequentially
-468	
-</Source>
-        <MessageVariables>
-          <MessageVariable Name="MotorBoard.modules.at(0).getEffort()" Index="1" />
-          <MessageVariable Name="MotorBoard.modules.at(0).getError()" Index="2" />
-        </MessageVariables>
-      </BreakPoint>
-    </BreakPoints>
+    <BreakPoints />
   </Program>
 </VisualMicro>

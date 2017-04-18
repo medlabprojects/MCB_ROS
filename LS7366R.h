@@ -13,6 +13,7 @@
 		2/11/16: Initial creation
 		3/14/17: Changed names to conform to convention
 				 Removed unused code
+        4/18/17: Updated function names and added isConfigured()
 
 //=========================================================================*/
 
@@ -82,9 +83,10 @@ public:
 	LS7366R(uint8_t csPin_);
 	~LS7366R(void);
 
-	void init(void); // configures encoder and enables counting
-	int32_t count(void);  // returns current count
-	uint8_t status(void); // returns STR register
+	bool init(void); // configures encoder and enables counting; returns configured_
+	int32_t getCount(void);   // returns current count
+    uint8_t readStatus(void); // returns STR and sets configured_
+	bool isConfigured(void);  // return configured_
 
 	// use these only for debugging
 	uint8_t read(uint8_t opcode, uint8_t data_out);
@@ -94,6 +96,7 @@ public:
 private:
 	uint8_t csPin_; // SPI chip-select pin
 	SPISettings SPISettings_;	 // SPI settings for the DAC
+    bool configured_;
 };
 
 #endif // !LS7366R_h

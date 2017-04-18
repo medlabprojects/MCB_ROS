@@ -44,7 +44,7 @@ public:
 	~MCB(void);
 	std::vector<MCBmodule> modules; // each module controls a single motor
 	void waitForButtonHold(void); // pauses program until Menu/Up/Down are all held for 2 seconds
-	void init(void); // initialize all modules (to be called after all addModule commands)
+	int  init(void); // initializes modules; returns number of detected modules
 	void addModule(uint8_t position);  // creates and adds module to <vector>modules
 	void enableAmp(uint8_t position);  // sets inhibit pin for motor amp
 	void disableAmp(uint8_t position); // sets inhibit pin for motor amp
@@ -66,12 +66,15 @@ public:
 	bool isUpPressed(void);	 // returns current state of up button
 	bool isMenuPressed(void); // returns current state of menu button
 	bool isEverythingPressed(void); // true if down/up/menu are all pressed
+    BoolVec isModuleConfigured(void); // returns moduleConfigured_
+    bool isModuleConfigured(uint8_t positition); // returns moduleConfigured_[position]
 
 private:
 	AD5761R DAC_; // provides access to all DACs
 	Int16Vec DACval_; // stores the current DAC output commands
 	Si5351 si5351_; // clock generator for encoder ICs (LS7366R)
 	uint8_t numModules_; // number of motor modules connected
+    BoolVec moduleConfigured_; // false if no module or module not configured successfully
 	BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
 	bool isPinsInit = false; // true after pins.init() has been called
 };
