@@ -26,9 +26,8 @@ class WiznetHardware {
     void init() {
         unsigned int ros_port = 11411;      // default ros port
 	    IPAddress ros_ip(192, 168, 0, 1);
-	    byte wiznet_mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+	    uint8_t wiznet_mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 	    IPAddress wiznet_ip(192, 168, 0, 40);
-    
 	    Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip addres of the Wiznet board.
 
 	    delay(5000); // startup delay as a fail-safe to upload a new sketch

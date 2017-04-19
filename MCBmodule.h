@@ -79,9 +79,6 @@ private:
 	volatile int32_t countDesired_ = 0;
 	int32_t	countError_ = 0;
 	float effort_ = 0; // unsaturated, computed effort from controller in Amps
-	//float32_t	kp_ = 0.0;	// proportional gain
-	//float32_t	ki_ = 0.0;	// integral gain
-	//float32_t	kd_ = 0.0;	// derivative gain
 };
 
 #endif

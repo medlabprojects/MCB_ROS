@@ -1,89 +1,24 @@
 #include "MCB.h"
 #include "MCBmodule.h"
+#include "MCBpins.h"
 #include <ArduinoSTL.h> 
 #include "si5351.h"
 #include <SPI.h>
 
-MCB::MCB(int8_t numModules)
-// will initialize modules using default pins (still need to call init after)
-	: DAC_(pins.csDAC)
-	, numModules_(numModules)	
+MCB::MCB(void)
+	: DAC_(pins.csDAC)	
 {	
-	// reserve memory for module components
-	modules.reserve(numModules_);
-	DACval_.reserve(numModules_);
-}
-
-void MCB::waitForButtonHold(void)
-{
-	// initialize MCB pins (if not already)
-	if (!isPinsInit) {
-		pins.init();
-		isPinsInit = true;
-	}
-
-	uint32_t holdTime = 2000; // [ms] how long buttons must be held before function returns
-	uint32_t timeButtonsPressed = 0; // [ms] how long buttons have been held
-	uint32_t timeStart = 0;
-
-	setLEDG(false);
-
-	// keep checking MCB buttons until Menu/Up/Down are all held for 2 seconds
-	while (timeButtonsPressed < holdTime) 
-	{
-		// check buttons
-		readButtons();
-		if (isDownPressed() && isUpPressed() && isMenuPressed()) {
-			// if just pressed
-			if (timeButtonsPressed == 0) 
-			{ 
-				timeStart = millis();
-				delay(1); // ensure next millis() call will be different
-			}
-
-			// light LEDs in sequence for user feedback
-			if (timeButtonsPressed < (holdTime/ 7)) {
-				if (!LEDG_[0]) { setLEDG(0, HIGH); }
-			}
-			else if (timeButtonsPressed < (2 * holdTime / 7)) {
-				if (!LEDG_[1]) { setLEDG(1, HIGH); }
-			}
-			else if (timeButtonsPressed < (3 * holdTime / 7)) {
-				if (!LEDG_[2]) { setLEDG(2, HIGH); }
-			}
-			else if (timeButtonsPressed < (4 * holdTime / 7)) {
-				if (!LEDG_[3]) { setLEDG(3, HIGH); }
-			}
-			else if (timeButtonsPressed < (5 * holdTime / 7)) {
-				if (!LEDG_[4]) { setLEDG(4, HIGH); }
-			}
-			else if (timeButtonsPressed < (6 * holdTime / 7)) {
-				if (!LEDG_[5]) { setLEDG(5, HIGH); }
-			}
-			else {
-				setLEDG(LOW);
-				delayMicroseconds(50000);
-				setLEDG(HIGH);
-				delayMicroseconds(50000);
-			}
-
-			timeButtonsPressed = millis() - timeStart;
-		}
-		else {
-			timeButtonsPressed = 0;
-			setLEDG(false);
-		}
-	}
-	setLEDG(false);
-	delay(500); // for visual confirmation
+	// reserve memory for modules
+	modules.reserve(pins.maxNumBoards);
+	DACval_.reserve(pins.maxNumBoards);
 }
 
 int MCB::init(void)
-// initializes all modules (to be called only after all addModule commands)
+// detects and initializes modules
 // returns number of modules detected
 // returns -1 to indicate incorrect module configuration (i.e. not in order starting from first socket)
 {
-    int numberOfModulesDetected = 0;
+    numModules_ = 0;
 
 	// initialize MCB pins (if not already)
 	if (!isPinsInit) {
@@ -91,7 +26,7 @@ int MCB::init(void)
 		isPinsInit = true;
 	}
 	
-	// initialize encoder clock for LS7366R
+	// initialize encoder clock used by all LS7366R 
 	si5351_.init(SI5351_CRYSTAL_LOAD_8PF, 0);
 	si5351_.set_freq(3000000000ULL, 0ULL, SI5351_CLK0); // Set CLK1 to output 30 MHz
 	si5351_.output_enable(SI5351_CLK1, 0); // Disable other clocks
@@ -103,15 +38,15 @@ int MCB::init(void)
 	// create and attempt to initialize each module (along with each encoder IC)
 	for (uint8_t ii = 0; ii < pins.maxNumBoards; ii++)
 	{
-		addModule(ii);
+		addModule(ii); // creates a module and adds to modules vector
 
         if (isModuleConfigured(ii)) {
-            numberOfModulesDetected++;
+            numModules_++;
         }
 	}
 
     // check that all detected boards are in a row starting from the first socket (i.e. no gaps) 
-    for (uint8_t ii = 0; ii < numberOfModulesDetected; ii++)
+    for (uint8_t ii = 0; ii < numModules_; ii++)
     {
         if (!isModuleConfigured(ii))
         {
@@ -141,7 +76,71 @@ int MCB::init(void)
 	}
 	DAC_.endTransfer();
 
-    return numberOfModulesDetected;
+    return numModules_;
+}
+
+void MCB::waitForButtonHold(void)
+{
+    // initialize MCB pins (if not already)
+    if (!isPinsInit) {
+        pins.init();
+        isPinsInit = true;
+    }
+
+    uint32_t holdTime = 2000; // [ms] how long buttons must be held before function returns
+    uint32_t timeButtonsPressed = 0; // [ms] how long buttons have been held
+    uint32_t timeStart = 0;
+
+    setLEDG(false);
+
+    // keep checking MCB buttons until Menu/Up/Down are all held for 2 seconds
+    while (timeButtonsPressed < holdTime)
+    {
+        // check buttons
+        readButtons();
+        if (isDownPressed() && isUpPressed() && isMenuPressed()) {
+            // if just pressed
+            if (timeButtonsPressed == 0)
+            {
+                timeStart = millis();
+                delay(1); // ensure next millis() call will be different
+            }
+
+            // light LEDs in sequence for user feedback
+            if (timeButtonsPressed < (holdTime / 7)) {
+                if (!LEDG_[0]) { setLEDG(0, HIGH); }
+            }
+            else if (timeButtonsPressed < (2 * holdTime / 7)) {
+                if (!LEDG_[1]) { setLEDG(1, HIGH); }
+            }
+            else if (timeButtonsPressed < (3 * holdTime / 7)) {
+                if (!LEDG_[2]) { setLEDG(2, HIGH); }
+            }
+            else if (timeButtonsPressed < (4 * holdTime / 7)) {
+                if (!LEDG_[3]) { setLEDG(3, HIGH); }
+            }
+            else if (timeButtonsPressed < (5 * holdTime / 7)) {
+                if (!LEDG_[4]) { setLEDG(4, HIGH); }
+            }
+            else if (timeButtonsPressed < (6 * holdTime / 7)) {
+                if (!LEDG_[5]) { setLEDG(5, HIGH); }
+            }
+            else {
+                setLEDG(LOW);
+                delayMicroseconds(50000);
+                setLEDG(HIGH);
+                delayMicroseconds(50000);
+            }
+
+            timeButtonsPressed = millis() - timeStart;
+        }
+        else {
+            timeButtonsPressed = 0;
+            setLEDG(false);
+        }
+    }
+    setLEDG(false);
+    delay(500); // for visual confirmation
 }
 
 void MCB::addModule(uint8_t position)
@@ -150,6 +149,11 @@ void MCB::addModule(uint8_t position)
 	modules.push_back(MCBmodule(position)); // create new MCBmodule and add to storage vector
     moduleConfigured_.push_back(false);
 	moduleConfigured_.at(position) = modules.at(position).init(); // initialize modules
+}
+
+uint8_t MCB::numModules(void)
+{
+    return numModules_;
 }
 
 void MCB::enableAmp(uint8_t position)

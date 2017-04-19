@@ -73,7 +73,7 @@ public:
 	const uint8_t resetWIZ = 9; // WIZ820io reset pin
 	const uint8_t csWIZ = 10;	// WIZ820io chip-select pin
 	const uint8_t csDAC = 27;   // global chip-select pin (SYNC) for DACs
-	const uint8_t CTRL = 28; // CTRL switch input
+	const uint8_t CTRL = 28;    // CTRL switch input
 	const uint8_t csLS7366R[6] = { 20, 17, 15, 29, 32, 30 }; // chip-select pins  !! if changed also change MCBmodule.pinEnc !!
 	const uint8_t ampEnable[6] = { 21, 16, 14, 25, 33, 31 }; // motor amp enable pins (HIGH = POWER ON)
 	const uint8_t LEDG[6] = { 24, 7, 6, 5, 3, 2 };   // control the green status LEDs
@@ -82,7 +82,7 @@ public:
 	const uint8_t buttonMenu = 23;
 	const uint8_t buttons[3] = { buttonDown, buttonUp, buttonMenu };
 	const float buttonThresh[3] = { 1500, 1500, 1500 }; // thresholds that constitute a key press (pF)
-	bool buttonStates[3] = { 0, 0, 0 };
+	volatile bool buttonStates[3] = { 0, 0, 0 }; // volatile in case used within interrupt
 	//const DoubleVec buttonThresh = {1600, 1200, 1500}; // thresholds that constitute a key press (pF)
 };
 

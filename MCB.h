@@ -15,6 +15,7 @@
 				   Fixed all issues due to switching from vectors to arrays in MCBpins.h
 				   Compiles and appears to run successfully
 		3/31/2017: Added waitForButtonHold()
+        4/18/2017: Autodetection of modules
 
 //=========================================================================*/
 
@@ -38,42 +39,51 @@ typedef std::vector<bool>	  BoolVec;
 class MCB
 {	
 public:
-	
-	MCBpins pins;  // set up Teensy pins for the MCB
-	MCB(int8_t numModules);	// will initialize modules using default pins (still need to call init after)
+	MCBpins pins; // Teensy pin definitions for MCB
+    MCB(void);
 	~MCB(void);
+
 	std::vector<MCBmodule> modules; // each module controls a single motor
-	void waitForButtonHold(void); // pauses program until Menu/Up/Down are all held for 2 seconds
+    uint8_t numModules(void); // returns number of motor modules detected
+    BoolVec isModuleConfigured(void); // returns moduleConfigured_
+    bool isModuleConfigured(uint8_t positition); // returns moduleConfigured_[position]
+
 	int  init(void); // initializes modules; returns number of detected modules
-	void addModule(uint8_t position);  // creates and adds module to <vector>modules
+    void waitForButtonHold(void); // pauses program until Menu/Up/Down are all held for 2 seconds
+    
 	void enableAmp(uint8_t position);  // sets inhibit pin for motor amp
 	void disableAmp(uint8_t position); // sets inhibit pin for motor amp
-	void disableAllAmps(void); 
+	void disableAllAmps(void); // disables all amps, regardles of numModules_
 	void enableAllAmps(void);  // NOTE: only enables n = numModules_
+
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains
 	void setMaxAmps(uint8_t position, float maxAmps); // [Amps] set based on motor current corresponding to max DAC output
 	float getMaxAmps(uint8_t position);               // DOES NOT directly limit current!! This must be done via ESCON Studio software
-	void setLEDG(uint8_t position, bool state); // sets green LED
+	
+    void setCount(uint8_t position, int32_t countDesired); // set desired motor position
+    Int32Vec getCounts(void); // returns most recent motor positions
+    int32_t getCount(uint8_t moduleNum); // returns most recent motor position
+
+    void stepPID(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
+
+    void setLEDG(uint8_t position, bool state); // sets green LED
 	void setLEDG(bool state); // sets all green LEDs
 	void toggleLEDG(uint8_t position); // toggle state of green LED
-	void setDACs(Int16Vec const &val); // manually set DAC outputs
-	void stepPID(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
-	void setCount(uint8_t position, int32_t countDesired); // set desired motor position
-	Int32Vec getCounts(void); // returns most recent motor positions
-	int32_t getCount(uint8_t moduleNum); // returns most recent motor position
+	
+    void setDACs(Int16Vec const &val); // manually set DAC outputs
+	
 	Uint32Vec readButtons(void);	 // check capacitive sensor buttons for key presses
 	bool isDownPressed(void); // returns current state of down button
 	bool isUpPressed(void);	 // returns current state of up button
 	bool isMenuPressed(void); // returns current state of menu button
 	bool isEverythingPressed(void); // true if down/up/menu are all pressed
-    BoolVec isModuleConfigured(void); // returns moduleConfigured_
-    bool isModuleConfigured(uint8_t positition); // returns moduleConfigured_[position]
 
 private:
 	AD5761R DAC_; // provides access to all DACs
 	Int16Vec DACval_; // stores the current DAC output commands
 	Si5351 si5351_; // clock generator for encoder ICs (LS7366R)
-	uint8_t numModules_; // number of motor modules connected
+    void addModule(uint8_t position);  // creates and adds module to <vector>modules
+    uint8_t numModules_;
     BoolVec moduleConfigured_; // false if no module or module not configured successfully
 	BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
 	bool isPinsInit = false; // true after pins.init() has been called

@@ -5,7 +5,6 @@
 #include <ros.h>
 #include <Ethernet.h>
 #include "WiznetHardware.h" 
-//#include <beginner_tutorials/msgEncoder.h>
 #include <beginner_tutorials/msgEncoderDesired.h>
 #include <beginner_tutorials/msgEncoderMeasuredDesired.h>
 #include <std_srvs/SetBool.h>
@@ -13,9 +12,7 @@
 /****************** GLOBALS *********************/
 
 // Motor Control Board
-int8_t numberOfModules = 6; // number of modules (i.e. motors) plugged into this board
-int numberOfModulesDetected;
-MCB MotorBoard(numberOfModules); // construct motor control board
+MCB MotorBoard; // construct motor control board
 float maxMotorAmps = 1.0;
 int8_t currentMotorSelected = 0; // for manual control using Up/Down buttons
 IntervalTimer timerMotorSelectLed;
@@ -30,20 +27,20 @@ ros::NodeHandle_<WiznetHardware> nh;
 beginner_tutorials::msgEncoderMeasuredDesired msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 ros::Publisher pubEncoderCurrent("topicEncoderCurrent", &msgEncoderCurrent); // publisher for sending out updated motor positions
 ros::Subscriber<beginner_tutorials::msgEncoderDesired> subEncoderCommand("topicEncoderCommand", &subEncoderCommandCallback); // subscriber for new motor commands
-ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands
+ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands                                                                                                                              // ROS
+IntervalTimer timerRos; // ROS timer interrupt
+bool timerRosFlag = false; // indicates timerRos has been called
+float frequencyRos = 500.0; // [Hz]
+uint32_t timeStepRos = uint32_t(1000000.0 / frequencyRos); // [us]
 
 // PID Controller
 IntervalTimer timerPid; // PID controller timer interrupt
+bool timerPidFlag = false; // indicates timerPid has been called
 int32_t countDesired[6]; // does this need to be volatile?
 float frequencyPid = 1000.0; // [Hz]
 uint32_t timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
 float kp = 0.0004, ki = 0.000002, kd = 0.01; // work well for 1 kHz
 // float kp = 0.0002, ki = 0.000001, kd = 0.01; // work ok for 2 kHz
-
-// ROS
-IntervalTimer timerRos; // ROS timer interrupt
-float frequencyRos = 500.0; // [Hz]
-uint32_t timeStepRos = uint32_t(1000000.0 / frequencyRos); // [us]
 
 // Local Control
 IntervalTimer timerLocalControl; // Button read timer interrupt
@@ -94,8 +91,7 @@ MCBstate PowerUP(void)
 
 	// initialize motor control board
 	Serial.println("\nInitializing Motor Control Board ... ");
-	numberOfModulesDetected = MotorBoard.init();
-    if (numberOfModulesDetected == -1) {
+    if (MotorBoard.init() == -1) {
         Serial.println("\nERROR: INCORRECT MODULE CONFIGURATION");
         Serial.println("\nPower off and ensure there are no gaps between modules");
         while (1) {
@@ -105,7 +101,7 @@ MCBstate PowerUP(void)
             delay(500);
         }
     }
-    Serial.print(numberOfModulesDetected);
+    Serial.print(MotorBoard.numModules());
     Serial.println(" motor modules detected and configured");
 
 	// create pin change interrupt for CTRL switch
@@ -210,7 +206,7 @@ MCBstate LocalIdle(void)
 
 	// initialize motors
 	Serial.print("Initializing Motors ... ");
-	for (int ii = 0; ii < numberOfModules; ii++) {
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
 		MotorBoard.setCount(ii, countDesired[ii]);
 		MotorBoard.setMaxAmps(ii, maxMotorAmps);
@@ -234,7 +230,7 @@ MCBstate LocalControl()
 	Serial.println("\nEntering Local Control State");
 
 	// set desired motor position to current position (prevents unexpected movement)
-	for (int ii = 0; ii < numberOfModules; ii++) 
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++) 
 	{
 		countDesired[ii] = MotorBoard.getCount(ii);
 		MotorBoard.setCount(ii, countDesired[ii]);
@@ -366,7 +362,7 @@ MCBstate RosInit()
 
 	// initialize motors
 	Serial.print("Initializing Motors ... ");
-	for (int ii = 0; ii < numberOfModules; ii++) {
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
 		MotorBoard.setCount(ii, countDesired[ii]);
 		MotorBoard.setMaxAmps(ii, maxMotorAmps);
@@ -414,7 +410,7 @@ MCBstate RosControl()
 	Serial.println("\nEntering ROS Control state");
 
 	// set desired motor position to current position (prevents unexpected movement)
-	for (int ii = 0; ii < numberOfModules; ii++)
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++)
 	{
 		countDesired[ii] = MotorBoard.getCount(ii);
 		MotorBoard.setCount(ii, countDesired[ii]);
@@ -459,32 +455,24 @@ MCBstate RosControl()
 
 void CTRLswitchCallback(void)
 {
-    noInterrupts();
 	stateCTRL = (digitalReadFast(MotorBoard.pins.CTRL) ? local : remote);
-    interrupts();
 }
 
 void timerPidCallback(void)
 {
-	noInterrupts(); // disable all interrupts to ensure this process completes sequentially
-
 	MotorBoard.setLEDG(2, HIGH);
 	
 	MotorBoard.stepPID();
 	
 	MotorBoard.setLEDG(2, LOW);
-
-	interrupts();
 }
 
 void timerRosCallback(void)
 {
-	noInterrupts(); // disable all interrupts to ensure this process completes sequentially
-
 	MotorBoard.setLEDG(1, HIGH);
 
 	// assemble encoder positions message and publish()
-	for (int ii = 0; ii < numberOfModules; ii++) {
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		msgEncoderCurrent.measured[ii] = MotorBoard.getCount(ii);
         msgEncoderCurrent.desired[ii] = MotorBoard.modules.at(ii).getCountDesired();
 	}
@@ -493,9 +481,6 @@ void timerRosCallback(void)
 	nh.spinOnce();
 
 	MotorBoard.setLEDG(1, LOW);
-
-	interrupts();
-
 }
 
 void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encCommands)
@@ -503,14 +488,10 @@ void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encC
 	MotorBoard.setLEDG(3, HIGH);
 
 	// set desired motor positions with values received over ROS
-	for (int ii = 0; ii < numberOfModules; ii++) {
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setCount(ii, encCommands.desired[ii]);
 	}
 	
-	//for (int ii = 0; ii < numberOfModules; ii++) {
-	//	MotorBoard.modules.at(ii).setCountDesired(encCommands.val[ii]);
-	//}
-
 	MotorBoard.setLEDG(3, LOW);
 }
 
@@ -526,7 +507,7 @@ void timerLocalControlCallback(void)
 
 	if (MotorBoard.isMenuPressed()) {
 		MotorBoard.disableAllAmps(); // stop motors momentarily
-		for (int ii = 0; ii < numberOfModules; ii++) {
+		for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 			MotorBoard.setLEDG(ii, false);
 		}
 		MotorBoard.setLEDG(currentMotorSelected, true);
@@ -535,7 +516,7 @@ void timerLocalControlCallback(void)
 			if (MotorBoard.isUpPressed()) {
 				MotorBoard.setLEDG(currentMotorSelected, false);
 				currentMotorSelected++;
-				if (currentMotorSelected >(numberOfModules-1)) { 
+				if (currentMotorSelected > (MotorBoard.numModules()-1)) {
 					currentMotorSelected = 0; }
 				MotorBoard.setLEDG(currentMotorSelected, true);
 			}
@@ -543,7 +524,7 @@ void timerLocalControlCallback(void)
 				MotorBoard.setLEDG(currentMotorSelected, false);
 				currentMotorSelected--;
 				if (currentMotorSelected < 0) { 
-					currentMotorSelected = (numberOfModules-1); }
+					currentMotorSelected = (MotorBoard.numModules()-1); }
 				MotorBoard.setLEDG(currentMotorSelected, true);
 			}
 			delayMicroseconds(400000); // wait for human's slow reaction time
