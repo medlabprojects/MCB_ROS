@@ -51,5 +51,6 @@ void srvEnableCallback(const std_srvs::SetBool::Request &req, std_srvs::SetBool:
 
 // Local Control
 void timerLocalControlCallback(void);
+void runLocalControl(void);
 
 #endif // !MCB_FSM_H

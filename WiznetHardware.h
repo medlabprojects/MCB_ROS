@@ -3,8 +3,6 @@
 
 #include <Ethernet.h>
 
-
-
 class WiznetHardware {
     private:
         EthernetClient my_client;
@@ -30,8 +28,6 @@ class WiznetHardware {
 	    IPAddress wiznet_ip(192, 168, 0, 40);
 	    Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip addres of the Wiznet board.
 
-	    delay(5000); // startup delay as a fail-safe to upload a new sketch
-
 	    if ( !(Ethernet.localIP() == wiznet_ip)) {
             sendResetPulse(); // attempt to reset Wiznet
             my_error = ERROR_WIZNET_IP_FAIL;
@@ -43,7 +39,7 @@ class WiznetHardware {
         }
         my_error = ERROR_NONE;
         return;
-      }
+    }
 
     int read() {
         unsigned int character_read;

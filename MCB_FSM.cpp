@@ -16,7 +16,7 @@ MCB MotorBoard; // construct motor control board
 float maxMotorAmps = 1.0;
 int8_t currentMotorSelected = 0; // for manual control using Up/Down buttons
 IntervalTimer timerMotorSelectLed;
-volatile bool motorSelectLedState = false;
+//volatile bool motorSelectLedState = false;
 MCBstate stateCurrent;
 enum CTRLswitchState { local, remote };
 volatile CTRLswitchState stateCTRL;
@@ -27,7 +27,7 @@ ros::NodeHandle_<WiznetHardware> nh;
 beginner_tutorials::msgEncoderMeasuredDesired msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 ros::Publisher pubEncoderCurrent("topicEncoderCurrent", &msgEncoderCurrent); // publisher for sending out updated motor positions
 ros::Subscriber<beginner_tutorials::msgEncoderDesired> subEncoderCommand("topicEncoderCommand", &subEncoderCommandCallback); // subscriber for new motor commands
-ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands                                                                                                                              // ROS
+ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands
 IntervalTimer timerRos; // ROS timer interrupt
 bool timerRosFlag = false; // indicates timerRos has been called
 float frequencyRos = 500.0; // [Hz]
@@ -44,6 +44,7 @@ float kp = 0.0004, ki = 0.000002, kd = 0.01; // work well for 1 kHz
 
 // Local Control
 IntervalTimer timerLocalControl; // Button read timer interrupt
+bool timerLocalControlFlag = false; // indicates timerLocalControl has been called
 float frequencyLocalControl = 100.0; // [Hz]
 uint32_t timeStepLocalControl = uint32_t(1000000.0 / frequencyLocalControl); // [us]
 volatile uint32_t countStepLocalControl = 500; // [counts] step size for each up/down button press
@@ -251,6 +252,16 @@ MCBstate LocalControl()
 	// keep running until CTRL switch changed to remote OR serial command detected
 	while (stateCTRL == local) 
 	{
+    // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
+        noInterrupts();
+
+        if (timerPidFlag) {
+            // read encoders, compute PID effort, update DACs
+            MotorBoard.stepPID();
+
+            timerPidFlag = false;
+        }
+
 		// check serial for commands
 		if (Serial.available()) 
 		{
@@ -272,8 +283,15 @@ MCBstate LocalControl()
 				// return to Local Idle state to process command
 				return stateLocalIdle;
 			}
-			
 		}
+
+        // run local control on a timer so a held button produces a constant velocity
+        if (timerLocalControlFlag) {
+            runLocalControl();
+            timerLocalControlFlag = false;
+        }
+
+        interrupts();
 	}
 
 	// stop checking buttons
@@ -314,16 +332,18 @@ MCBstate RosInit()
 
 	Serial.println("Success!");
 
-	// initialize ROS connection
+	// initialize ROS
 	Serial.print("Connecting to ROS Network ... ");
 	nh.advertise(pubEncoderCurrent);
 	nh.subscribe(subEncoderCommand);
 	nh.advertiseService(srvEnableMCB);
+
+    // wait until connection established or CTRL switched to 'local'
 	while (!nh.connected() && (stateCTRL == remote)) {
         noInterrupts();
 		nh.spinOnce();
         interrupts();
-	} // wait until connection established or CTRL switched to 'local'
+	}
 
 	if (stateCTRL == local) {
 		return stateLocalIdle;
@@ -387,7 +407,9 @@ MCBstate RosIdle()
 
 	// wait for ROS enable command via service call
 	while (!ROSenable && nh.connected() && (stateCTRL == remote)) {
+        noInterrupts();
 		nh.spinOnce();
+        interrupts();
 	}
 
 	if (!nh.connected()) {
@@ -426,10 +448,35 @@ MCBstate RosControl()
 	timerRos.begin(timerRosCallback, timeStepRos);
 
 	// loop until disconnected OR ROS 'disable' command OR CTRL switched to 'local'
-	while (ROSenable && nh.connected() && (stateCTRL == remote)) {
-        interrupts();
-        // process interrupts calls here
-        noInterrupts();
+	while (ROSenable && nh.connected() && (stateCTRL == remote)) 
+    { 
+    // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
+        noInterrupts(); // ensure all actions are completed without interruptions
+
+        if (timerPidFlag) {
+            // read encoders, compute PID effort, update DACs
+            MotorBoard.stepPID();
+            
+            timerPidFlag = false;
+        }
+
+        if (timerRosFlag) {
+            // assemble encoder message to send out
+            for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
+                msgEncoderCurrent.measured[ii] = MotorBoard.getCount(ii);
+                msgEncoderCurrent.desired[ii] = MotorBoard.modules.at(ii).getCountDesired();
+            }
+            
+            // queue messages into their publishers
+            pubEncoderCurrent.publish(&msgEncoderCurrent);
+
+            // process pending ROS communications
+            nh.spinOnce();
+
+            timerRosFlag = false;
+        }
+
+        interrupts(); // re-enable so interrupts can be processed
 	}
 
 	// power off motors, disable PID controller, and stop ROS timer
@@ -460,27 +507,12 @@ void CTRLswitchCallback(void)
 
 void timerPidCallback(void)
 {
-	MotorBoard.setLEDG(2, HIGH);
-	
-	MotorBoard.stepPID();
-	
-	MotorBoard.setLEDG(2, LOW);
+    timerPidFlag = true;
 }
 
 void timerRosCallback(void)
 {
-	MotorBoard.setLEDG(1, HIGH);
-
-	// assemble encoder positions message and publish()
-	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-		msgEncoderCurrent.measured[ii] = MotorBoard.getCount(ii);
-        msgEncoderCurrent.desired[ii] = MotorBoard.modules.at(ii).getCountDesired();
-	}
-	pubEncoderCurrent.publish(&msgEncoderCurrent);
-
-	nh.spinOnce();
-
-	MotorBoard.setLEDG(1, LOW);
+    timerRosFlag = true;
 }
 
 void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encCommands)
@@ -497,16 +529,22 @@ void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encC
 
 void motorSelectLedCallback(void)
 {
-	motorSelectLedState = !motorSelectLedState;
-	MotorBoard.setLEDG(currentMotorSelected, motorSelectLedState);
+    MotorBoard.toggleLEDG(currentMotorSelected);
+	//motorSelectLedState = !motorSelectLedState;
+	//MotorBoard.setLEDG(currentMotorSelected, motorSelectLedState);
 }
 
 void timerLocalControlCallback(void)
 {
+    timerLocalControlFlag = true;
+}
+
+void runLocalControl(void)
+{
 	MotorBoard.readButtons();
 
 	if (MotorBoard.isMenuPressed()) {
-		MotorBoard.disableAllAmps(); // stop motors momentarily
+		MotorBoard.disableAllAmps(); // stop motors during user selection
 		for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 			MotorBoard.setLEDG(ii, false);
 		}
