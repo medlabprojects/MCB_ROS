@@ -7,6 +7,9 @@
 #include "WiznetHardware.h" 
 #include <beginner_tutorials/msgEncoderDesired.h>
 #include <beginner_tutorials/msgEncoderMeasuredDesired.h>
+#include <beginner_tutorials\srvGetGains.h>
+#include <beginner_tutorials\srvSetGains.h>
+#include <beginner_tutorials\srvStatusMCB.h>
 #include <std_srvs/SetBool.h>
 
 /****************** GLOBALS *********************/
@@ -16,7 +19,6 @@ MCB MotorBoard; // construct motor control board
 float maxMotorAmps = 1.0;
 int8_t currentMotorSelected = 0; // for manual control using Up/Down buttons
 IntervalTimer timerMotorSelectLed;
-//volatile bool motorSelectLedState = false;
 MCBstate stateCurrent;
 enum CTRLswitchState { local, remote };
 volatile CTRLswitchState stateCTRL;
@@ -28,14 +30,17 @@ beginner_tutorials::msgEncoderMeasuredDesired msgEncoderCurrent; // stores most 
 ros::Publisher pubEncoderCurrent("topicEncoderCurrent", &msgEncoderCurrent); // publisher for sending out updated motor positions
 ros::Subscriber<beginner_tutorials::msgEncoderDesired> subEncoderCommand("topicEncoderCommand", &subEncoderCommandCallback); // subscriber for new motor commands
 ros::ServiceServer<std_srvs::SetBool::Request, std_srvs::SetBool::Response> srvEnableMCB("serviceEnableMCB", &srvEnableCallback); // service to handle MCB enable/disable commands
+ros::ServiceServer<beginner_tutorials::srvGetGains::Request, beginner_tutorials::srvGetGains::Response> srvGetGains("serviceGetGains", &srvGetGainsCallback);
+ros::ServiceServer<beginner_tutorials::srvSetGains::Request, beginner_tutorials::srvSetGains::Response> srvSetGains("serviceSetGains", &srvSetGainsCallback);
+ros::ServiceServer<beginner_tutorials::srvStatusMCB::Request, beginner_tutorials::srvStatusMCB::Response> srvStatusMCB("serviceStatusMCB", &srvStatusMCBCallback);
 IntervalTimer timerRos; // ROS timer interrupt
-bool timerRosFlag = false; // indicates timerRos has been called
+volatile bool timerRosFlag = false; // indicates timerRos has been called
 float frequencyRos = 500.0; // [Hz]
 uint32_t timeStepRos = uint32_t(1000000.0 / frequencyRos); // [us]
 
 // PID Controller
 IntervalTimer timerPid; // PID controller timer interrupt
-bool timerPidFlag = false; // indicates timerPid has been called
+volatile bool timerPidFlag = false; // indicates timerPid has been called
 int32_t countDesired[6]; // does this need to be volatile?
 float frequencyPid = 1000.0; // [Hz]
 uint32_t timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
@@ -44,10 +49,10 @@ float kp = 0.0004, ki = 0.000002, kd = 0.01; // work well for 1 kHz
 
 // Local Control
 IntervalTimer timerLocalControl; // Button read timer interrupt
-bool timerLocalControlFlag = false; // indicates timerLocalControl has been called
+volatile bool timerLocalControlFlag = false; // indicates timerLocalControl has been called
 float frequencyLocalControl = 100.0; // [Hz]
 uint32_t timeStepLocalControl = uint32_t(1000000.0 / frequencyLocalControl); // [us]
-volatile uint32_t countStepLocalControl = 500; // [counts] step size for each up/down button press
+uint32_t countStepLocalControl = 500; // [counts] step size for each up/down button press
 
 
 MCBstate stepStateMachine(MCBstate stateNext) 
@@ -209,7 +214,7 @@ MCBstate LocalIdle(void)
 	Serial.print("Initializing Motors ... ");
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
-		MotorBoard.setCount(ii, countDesired[ii]);
+		MotorBoard.setCountDesired(ii, countDesired[ii]);
 		MotorBoard.setMaxAmps(ii, maxMotorAmps);
 	}
 	Serial.println("done");
@@ -233,8 +238,8 @@ MCBstate LocalControl()
 	// set desired motor position to current position (prevents unexpected movement)
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) 
 	{
-		countDesired[ii] = MotorBoard.getCount(ii);
-		MotorBoard.setCount(ii, countDesired[ii]);
+		countDesired[ii] = MotorBoard.getCountLast(ii);
+		MotorBoard.setCountDesired(ii, countDesired[ii]);
 	}
 
 	// enable motor amps
@@ -337,6 +342,9 @@ MCBstate RosInit()
 	nh.advertise(pubEncoderCurrent);
 	nh.subscribe(subEncoderCommand);
 	nh.advertiseService(srvEnableMCB);
+    nh.advertiseService(srvSetGains);
+    nh.advertiseService(srvGetGains);
+    nh.advertiseService(srvStatusMCB);
 
     // wait until connection established or CTRL switched to 'local'
 	while (!nh.connected() && (stateCTRL == remote)) {
@@ -384,7 +392,7 @@ MCBstate RosInit()
 	Serial.print("Initializing Motors ... ");
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
-		MotorBoard.setCount(ii, countDesired[ii]);
+		MotorBoard.setCountDesired(ii, countDesired[ii]);
 		MotorBoard.setMaxAmps(ii, maxMotorAmps);
 	}
 	Serial.println("done");
@@ -434,8 +442,8 @@ MCBstate RosControl()
 	// set desired motor position to current position (prevents unexpected movement)
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++)
 	{
-		countDesired[ii] = MotorBoard.getCount(ii);
-		MotorBoard.setCount(ii, countDesired[ii]);
+		countDesired[ii] = MotorBoard.getCountLast(ii);
+		MotorBoard.setCountDesired(ii, countDesired[ii]);
 	}
 
 	// enable motor amps
@@ -463,8 +471,8 @@ MCBstate RosControl()
         if (timerRosFlag) {
             // assemble encoder message to send out
             for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-                msgEncoderCurrent.measured[ii] = MotorBoard.getCount(ii);
-                msgEncoderCurrent.desired[ii] = MotorBoard.modules.at(ii).getCountDesired();
+                msgEncoderCurrent.measured[ii] = MotorBoard.getCountLast(ii);
+                msgEncoderCurrent.desired[ii] = MotorBoard.getCountDesired(ii);
             }
             
             // queue messages into their publishers
@@ -500,6 +508,9 @@ MCBstate RosControl()
 	}
 }
 
+//--------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------//
+
 void CTRLswitchCallback(void)
 {
 	stateCTRL = (digitalReadFast(MotorBoard.pins.CTRL) ? local : remote);
@@ -517,21 +528,19 @@ void timerRosCallback(void)
 
 void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encCommands)
 {
-	MotorBoard.setLEDG(3, HIGH);
+    noInterrupts();
 
 	// set desired motor positions with values received over ROS
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-		MotorBoard.setCount(ii, encCommands.desired[ii]);
+		MotorBoard.setCountDesired(ii, encCommands.desired[ii]);
 	}
 	
-	MotorBoard.setLEDG(3, LOW);
+    interrupts();
 }
 
 void motorSelectLedCallback(void)
 {
     MotorBoard.toggleLEDG(currentMotorSelected);
-	//motorSelectLedState = !motorSelectLedState;
-	//MotorBoard.setLEDG(currentMotorSelected, motorSelectLedState);
 }
 
 void timerLocalControlCallback(void)
@@ -568,20 +577,23 @@ void runLocalControl(void)
 			delayMicroseconds(400000); // wait for human's slow reaction time
 			MotorBoard.readButtons();
 		}
-		countDesired[currentMotorSelected] = MotorBoard.getCount(currentMotorSelected); // ensure we drive relative to current position
+		countDesired[currentMotorSelected] = MotorBoard.getCountLast(currentMotorSelected); // ensure we drive relative to current position
 		MotorBoard.enableAllAmps();
 	}
 	else if (MotorBoard.isUpPressed()) {
 		countDesired[currentMotorSelected] += countStepLocalControl;
-		MotorBoard.setCount(currentMotorSelected, countDesired[currentMotorSelected]);
+		MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
 	}
 	else if (MotorBoard.isDownPressed()) {
 		countDesired[currentMotorSelected] -= countStepLocalControl;
-		MotorBoard.setCount(currentMotorSelected, countDesired[currentMotorSelected]);
+		MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
 	}
 }
 
-void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) {
+void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) 
+{
+    noInterrupts();
+
 	if (req.data) { // 'run' command
 		if (ROSenable) {
 			res.success = true;
@@ -610,4 +622,91 @@ void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool
 			res.message = "Error: MCB not in ROS Control state";
 		}
 	}
+
+    interrupts();
+}
+
+void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest & req, beginner_tutorials::srvGetGainsResponse & res)
+{
+    noInterrupts();
+
+    // ensure a module exists at location requested
+    if (!MotorBoard.isModuleConfigured(req.module)) {
+        res.success = -1;
+        res.errorMessage = "No module at location requested";
+    }
+    else {
+        // retrieve gains
+        FloatVec gains(MotorBoard.getGains(req.module));
+
+        // assemble response
+        res.kp = gains.at(0);
+        res.ki = gains.at(1);
+        res.kd = gains.at(2);
+        res.success = 1;
+    }
+
+    interrupts();
+}
+
+void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest & req, beginner_tutorials::srvSetGainsResponse & res)
+{
+    noInterrupts();
+
+    // ensure a module exists at location requested
+    if (!MotorBoard.isModuleConfigured(req.moduleToSet)) {
+        res.success = -1;
+        res.errorMessage = "No module at location requested";
+    }
+    else {
+        MotorBoard.setGains(req.moduleToSet, req.kp, req.ki, req.kd);
+        res.success = 1;
+    }
+
+    interrupts();
+}
+
+void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest & req, beginner_tutorials::srvStatusMCBResponse & res)
+{
+    noInterrupts();
+
+    res.numModules = MotorBoard.numModules();
+    res.currentState = MCBstateToString(stateCurrent);
+    uint32_t tmpIP = (uint32_t)nh.getHardware()->wiznet_ip;
+    memcpy(res.ip, &tmpIP, 4);
+    memcpy(res.mac, nh.getHardware()->wiznet_mac, 6);
+    res.limitSwitchTriggered = false;
+
+    interrupts();
+}
+
+char* MCBstateToString(MCBstate currentState) {
+    char* stateName;
+
+    switch (currentState)
+    {
+    case statePowerUp:
+        stateName = "Power Up";
+        break;
+    case stateLocalIdle:
+        stateName = "Local Idle";
+        break;
+    case stateLocalControl:
+        stateName = "Local Control";
+        break;
+    case stateRosInit:
+        stateName = "ROS Init";
+        break;
+    case stateRosIdle:
+        stateName = "ROS Idle";
+        break;
+    case stateRosControl:
+        stateName = "ROS Control";
+        break;
+    default:
+        stateName = "Error determining state";
+        break;
+    }
+
+    return stateName;
 }

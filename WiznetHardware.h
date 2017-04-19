@@ -13,9 +13,14 @@ class WiznetHardware {
         static const int ERROR_NOT_SETUP = -1;
         static const int ERROR_WIZNET_IP_FAIL = -2;
         static const int ERROR_CONNECT_FAIL = -3;
+        IPAddress wiznet_ip;
+        uint8_t wiznet_mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
     public:
-        WiznetHardware() : my_client() {
+        WiznetHardware() 
+            : my_client(),
+              wiznet_ip(192, 168, 0, 40)
+        {
 	        sendResetPulse();
 	        my_error = ERROR_NOT_SETUP;
 	        return;
@@ -23,9 +28,7 @@ class WiznetHardware {
 
     void init() {
         unsigned int ros_port = 11411;      // default ros port
-	    IPAddress ros_ip(192, 168, 0, 1);
-	    uint8_t wiznet_mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-	    IPAddress wiznet_ip(192, 168, 0, 40);
+	    IPAddress ros_ip(192, 168, 0, 1);   // IP of server running ROS
 	    Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip addres of the Wiznet board.
 
 	    if ( !(Ethernet.localIP() == wiznet_ip)) {

@@ -24,7 +24,9 @@ Changelog-
 #include <Ethernet.h>
 #include "WiznetHardware.h"
 #include <beginner_tutorials/msgEncoderDesired.h>
-#include <beginner_tutorials/msgEncoderMeasuredDesired.h>
+#include <beginner_tutorials\srvGetGains.h>
+#include <beginner_tutorials\srvSetGains.h>
+#include <beginner_tutorials\srvStatusMCB.h>
 #include <std_srvs\SetBool.h>
 
 // Motor Control Board
@@ -33,6 +35,7 @@ void CTRLswitchCallback(void);
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateLocalIdle, stateLocalControl, stateRosInit, stateRosIdle, stateRosControl };
+char* MCBstateToString(MCBstate currentState);
 MCBstate PowerUP(void);
 MCBstate LocalIdle(void);
 MCBstate LocalControl(void);
@@ -48,6 +51,9 @@ void timerPidCallback(void);
 void timerRosCallback(void);
 void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired & encCommands); // callback for subscriber subEncoderCommand
 void srvEnableCallback(const std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); // callback for service srvEnableMCB
+void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest &req, beginner_tutorials::srvGetGainsResponse &res); // callback for service srvGetGains
+void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest &req, beginner_tutorials::srvSetGainsResponse &res); // callback for service srvSetGains
+void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest &req, beginner_tutorials::srvStatusMCBResponse &res); // callback for service srvStatusMCB
 
 // Local Control
 void timerLocalControlCallback(void);

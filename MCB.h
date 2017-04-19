@@ -33,6 +33,7 @@ typedef std::vector<uint8_t>  Uint8Vec;
 typedef std::vector<int16_t>  Int16Vec;
 typedef std::vector<int32_t>  Int32Vec;
 typedef std::vector<uint32_t> Uint32Vec;
+typedef std::vector<float>    FloatVec;
 typedef std::vector<double>	  DoubleVec;
 typedef std::vector<bool>	  BoolVec;
 
@@ -43,7 +44,6 @@ public:
     MCB(void);
 	~MCB(void);
 
-	std::vector<MCBmodule> modules; // each module controls a single motor
     uint8_t numModules(void); // returns number of motor modules detected
     BoolVec isModuleConfigured(void); // returns moduleConfigured_
     bool isModuleConfigured(uint8_t positition); // returns moduleConfigured_[position]
@@ -56,13 +56,15 @@ public:
 	void disableAllAmps(void); // disables all amps, regardles of numModules_
 	void enableAllAmps(void);  // NOTE: only enables n = numModules_
 
-	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains
+	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
+    FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
 	void setMaxAmps(uint8_t position, float maxAmps); // [Amps] set based on motor current corresponding to max DAC output
 	float getMaxAmps(uint8_t position);               // DOES NOT directly limit current!! This must be done via ESCON Studio software
 	
-    void setCount(uint8_t position, int32_t countDesired); // set desired motor position
-    Int32Vec getCounts(void); // returns most recent motor positions
-    int32_t getCount(uint8_t moduleNum); // returns most recent motor position
+    void setCountDesired(uint8_t position, int32_t countDesired); // set desired count of motor located at [position]
+    int32_t getCountDesired(uint8_t position); // returns the current target position of motor located at [position]
+    Int32Vec getCountsLast(void); // returns most recent motor positions
+    int32_t getCountLast(uint8_t moduleNum); // returns most recent motor position
 
     void stepPID(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
 
@@ -79,6 +81,7 @@ public:
 	bool isEverythingPressed(void); // true if down/up/menu are all pressed
 
 private:
+    std::vector<MCBmodule> modules_; // each module controls a single motor
 	AD5761R DAC_; // provides access to all DACs
 	Int16Vec DACval_; // stores the current DAC output commands
 	Si5351 si5351_; // clock generator for encoder ICs (LS7366R)

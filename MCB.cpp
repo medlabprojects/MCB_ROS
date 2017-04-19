@@ -9,7 +9,7 @@ MCB::MCB(void)
 	: DAC_(pins.csDAC)	
 {	
 	// reserve memory for modules
-	modules.reserve(pins.maxNumBoards);
+	modules_.reserve(pins.maxNumBoards);
 	DACval_.reserve(pins.maxNumBoards);
 }
 
@@ -146,9 +146,9 @@ void MCB::waitForButtonHold(void)
 void MCB::addModule(uint8_t position)
 {
     DACval_.push_back(0); // initialize DAC output values to 0
-	modules.push_back(MCBmodule(position)); // create new MCBmodule and add to storage vector
+	modules_.push_back(MCBmodule(position)); // create new MCBmodule and add to storage vector
     moduleConfigured_.push_back(false);
-	moduleConfigured_.at(position) = modules.at(position).init(); // initialize modules
+	moduleConfigured_.at(position) = modules_.at(position).init(); // initialize modules
 }
 
 uint8_t MCB::numModules(void)
@@ -190,26 +190,36 @@ void MCB::enableAllAmps(void)
 
 void MCB::setGains(uint8_t position, float kp, float ki, float kd)
 {
-	modules.at(position).setGains(kp, ki, kd);
+	modules_.at(position).setGains(kp, ki, kd);
+}
+
+FloatVec MCB::getGains(uint8_t position)
+{
+    FloatVec gains;
+    gains.push_back(modules_.at(position).getKp());
+    gains.push_back(modules_.at(position).getKi());
+    gains.push_back(modules_.at(position).getKd());
+
+    return gains;
 }
 
 void MCB::setMaxAmps(uint8_t position, float maxAmps)
 {
-	modules.at(position).setMaxAmps(maxAmps);
+	modules_.at(position).setMaxAmps(maxAmps);
 }
 
 float MCB::getMaxAmps(uint8_t position)
 {
-	return modules.at(position).getMaxAmps();
+	return modules_.at(position).getMaxAmps();
 }
 
 void MCB::stepPID(void)
 {
 	
 	// step PID controllers
-	for (uint8_t aa = 0; aa < modules.size(); aa++)
+	for (uint8_t aa = 0; aa < modules_.size(); aa++)
 	{
-		DACval_.at(aa) = modules.at(aa).step();
+		DACval_.at(aa) = modules_.at(aa).step();
 	}
 	
 	// update DACs
@@ -258,26 +268,30 @@ void MCB::toggleLEDG(uint8_t position)
 	}
 }
 
-void MCB::setCount(uint8_t position, int32_t countDesired)
+void MCB::setCountDesired(uint8_t position, int32_t countDesired)
 {
-	
-	modules.at(position).setCountDesired(countDesired);
+	modules_.at(position).setCountDesired(countDesired);
 }
 
-Int32Vec MCB::getCounts(void)
+int32_t MCB::getCountDesired(uint8_t position)
+{
+    return modules_.at(position).getCountDesired();
+}
+
+Int32Vec MCB::getCountsLast(void)
 {
 	Int32Vec temp;
-	for (uint8_t aa = 0; aa < modules.size(); aa++)
+	for (uint8_t aa = 0; aa < modules_.size(); aa++)
 	{
-		temp.at(aa) = modules.at(aa).getCountLast();
+		temp.at(aa) = modules_.at(aa).getCountLast();
 	}
 	
 	return temp;
 }
 
-int32_t MCB::getCount(uint8_t moduleNum)
+int32_t MCB::getCountLast(uint8_t moduleNum)
 {	
-	return modules.at(moduleNum).getCountLast();
+	return modules_.at(moduleNum).getCountLast();
 }
 
 Uint32Vec MCB::readButtons(void)
