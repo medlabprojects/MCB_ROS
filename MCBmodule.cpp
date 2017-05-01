@@ -182,7 +182,7 @@ void MCBmodule::setKd(float kd)
 
 float MCBmodule::getKp(void)
 {
-	return PID_.getKd();
+	return PID_.getKp();
 }
 
 float MCBmodule::getKi(void)

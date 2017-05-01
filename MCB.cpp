@@ -158,22 +158,22 @@ uint8_t MCB::numModules(void)
 
 void MCB::enableAmp(uint8_t position)
 {
-	// software brakes (HIGH = amp enabled)
-	digitalWriteFast(pins.ampEnable[position], HIGH);
+	// software brakes (LOW = amp enabled)
+	digitalWriteFast(pins.ampEnable[position], LOW);
 }
 
 void MCB::disableAmp(uint8_t position)
 {
-	// software brakes (LOW = amp disabled)
-	digitalWriteFast(pins.ampEnable[position], LOW);
+	// software brakes (HIGH = amp disabled)
+	digitalWriteFast(pins.ampEnable[position], HIGH);
 }
 
 void MCB::disableAllAmps(void)
 {
 	for (uint8_t aa = 0; aa < pins.maxNumBoards; aa++)
 	{
-		// software brakes (LOW = amps disabled)
-		digitalWriteFast(pins.ampEnable[aa], LOW);
+		// software brakes (HIGH = amps disabled)
+		digitalWriteFast(pins.ampEnable[aa], HIGH);
 	}
 }
 
@@ -182,9 +182,9 @@ void MCB::enableAllAmps(void)
 	// enable motor amp outputs and turn on green LEDs
 	for (uint8_t aa = 0; aa < numModules_; aa++)
 	{
-		// software brakes (HIGH = amps enabled)
-		digitalWriteFast(pins.ampEnable[aa], HIGH);
-		setLEDG(aa, HIGH);
+		// software brakes (LOW = amps enabled)
+		digitalWriteFast(pins.ampEnable[aa], LOW);
+		setLEDG(aa, LOW);
 	}
 }
 
@@ -201,6 +201,11 @@ FloatVec MCB::getGains(uint8_t position)
     gains.push_back(modules_.at(position).getKd());
 
     return gains;
+}
+
+float MCB::getEffort(uint8_t position)
+{
+    return modules_.at(position).getEffort();
 }
 
 void MCB::setMaxAmps(uint8_t position, float maxAmps)
@@ -278,15 +283,24 @@ int32_t MCB::getCountDesired(uint8_t position)
     return modules_.at(position).getCountDesired();
 }
 
+Int32Vec MCB::getCountsDesired(void)
+{
+    Int32Vec countsDesired(pins.maxNumBoards);
+    for (int ii = 0; ii < numModules_; ii++) {
+        countsDesired.at(ii) = modules_.at(ii).getCountDesired();
+    }
+    return countsDesired;
+}
+
 Int32Vec MCB::getCountsLast(void)
 {
-	Int32Vec temp;
+	Int32Vec countsLast(pins.maxNumBoards);
 	for (uint8_t aa = 0; aa < modules_.size(); aa++)
 	{
-		temp.at(aa) = modules_.at(aa).getCountLast();
+        countsLast.at(aa) = modules_.at(aa).getCountLast();
 	}
 	
-	return temp;
+	return countsLast;
 }
 
 int32_t MCB::getCountLast(uint8_t moduleNum)

@@ -58,12 +58,14 @@ public:
 
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
+    float getEffort(uint8_t position);   // returns computed effort of PID controller (prior to maxAmps saturation check)
 	void setMaxAmps(uint8_t position, float maxAmps); // [Amps] set based on motor current corresponding to max DAC output
 	float getMaxAmps(uint8_t position);               // DOES NOT directly limit current!! This must be done via ESCON Studio software
 	
     void setCountDesired(uint8_t position, int32_t countDesired); // set desired count of motor located at [position]
-    int32_t getCountDesired(uint8_t position); // returns the current target position of motor located at [position]
-    Int32Vec getCountsLast(void); // returns most recent motor positions
+    int32_t  getCountDesired(uint8_t position); // returns the current target of motor located at [position]
+    Int32Vec getCountsDesired(void); // returns vector of last commanded count targets
+    Int32Vec getCountsLast(void); // returns most recent encoder counts
     int32_t getCountLast(uint8_t moduleNum); // returns most recent motor position
 
     void stepPID(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)

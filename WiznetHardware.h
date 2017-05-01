@@ -29,8 +29,8 @@ class WiznetHardware {
     void init() {
         unsigned int ros_port = 11411;      // default ros port
 	    IPAddress ros_ip(192, 168, 0, 1);   // IP of server running ROS
-	    Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip addres of the Wiznet board.
-
+	    Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip address of the Wiznet board.
+        delay(1000); // give wiznet time to configure
 	    if ( !(Ethernet.localIP() == wiznet_ip)) {
             sendResetPulse(); // attempt to reset Wiznet
             my_error = ERROR_WIZNET_IP_FAIL;
@@ -58,7 +58,9 @@ class WiznetHardware {
     }
 
     void write(uint8_t* data, int length) {
+        digitalWriteFast(7, HIGH);
         my_client.write(data, length);
+        digitalWriteFast(7, LOW);
     }
 
     unsigned long time() {

@@ -938,7 +938,6 @@ uint64_t Si5351::pll_calc(uint64_t freq, struct Si5351RegSet *reg, int32_t corre
 	uint64_t ref_freq = xtal_freq * SI5351_FREQ_MULT;
 	uint32_t a, b, c, p1, p2, p3;
 	uint64_t lltmp, rfrac, denom;
-	//uint64_t lltmp, denom; // changed 3/13/2017 by TLB: fixes compiler warning due to rfrac not being used
 	//int64_t ref_temp; // changed 3/13/2017 by TLB: fixes compiler warning due to ref_temp not being used
 
 	// Factor calibration value into nominal crystal frequency

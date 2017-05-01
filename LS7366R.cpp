@@ -78,7 +78,7 @@ void LS7366R::write(uint8_t opcode)
 int32_t LS7366R::getCount(void)
 {
 
-	uint8_uint32 count_temp;
+	uint8_int32 count_temp;
 	
 	SPI.beginTransaction(SPISettings_); // temporary fix when switching SPI modes
 	SPI.transfer(0x00);					// sends a dummy byte to ensure correct mode is set
@@ -93,7 +93,7 @@ int32_t LS7366R::getCount(void)
 	digitalWrite(csPin_, HIGH);
 	SPI.endTransaction();
 	
-	return (int32_t) count_temp.value;
+	return count_temp.value;
 }
 
 uint8_t LS7366R::readStatus(void)

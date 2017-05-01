@@ -20,9 +20,9 @@ float maxMotorAmps = 1.0;
 int8_t currentMotorSelected = 0; // for manual control using Up/Down buttons
 IntervalTimer timerMotorSelectLed;
 MCBstate stateCurrent;
-enum CTRLswitchState { local, remote };
-volatile CTRLswitchState stateCTRL;
-bool ROSenable = false; // ROS must set this true via 'enableMCB_srv' to control motors
+enum modeSwitchState { Manual, Ros };
+volatile modeSwitchState modeState;
+bool ROSenable = false; // ROS must set this true via 'serviceEnableMCB' to control motors
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
@@ -37,6 +37,7 @@ IntervalTimer timerRos; // ROS timer interrupt
 volatile bool timerRosFlag = false; // indicates timerRos has been called
 float frequencyRos = 500.0; // [Hz]
 uint32_t timeStepRos = uint32_t(1000000.0 / frequencyRos); // [us]
+uint8_t publishInterval = 8; // publish every x times timerRos is called
 
 // PID Controller
 IntervalTimer timerPid; // PID controller timer interrupt
@@ -47,12 +48,12 @@ uint32_t timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
 float kp = 0.0004, ki = 0.000002, kd = 0.01; // work well for 1 kHz
 // float kp = 0.0002, ki = 0.000001, kd = 0.01; // work ok for 2 kHz
 
-// Local Control
-IntervalTimer timerLocalControl; // Button read timer interrupt
-volatile bool timerLocalControlFlag = false; // indicates timerLocalControl has been called
-float frequencyLocalControl = 100.0; // [Hz]
-uint32_t timeStepLocalControl = uint32_t(1000000.0 / frequencyLocalControl); // [us]
-uint32_t countStepLocalControl = 500; // [counts] step size for each up/down button press
+// manual Control
+IntervalTimer timerManualControl; // Button read timer interrupt
+volatile bool timerManualControlFlag = false; // indicates timerManualControl has been called
+float frequencyManualControl = 100.0; // [Hz]
+uint32_t timeStepManualControl = uint32_t(1000000.0 / frequencyManualControl); // [us]
+uint32_t countStepManualControl = 500; // [counts] step size for each up/down button press
 
 
 MCBstate stepStateMachine(MCBstate stateNext) 
@@ -62,11 +63,11 @@ MCBstate stepStateMachine(MCBstate stateNext)
 	case statePowerUp:
 		return PowerUP();
 
-	case stateLocalIdle:
-		return LocalIdle();
+	case stateManualIdle:
+		return ManualIdle();
 
-	case stateLocalControl:
-		return LocalControl();
+	case stateManualControl:
+		return ManualControl();
 
 	case stateRosInit:
 		return RosInit();
@@ -110,25 +111,25 @@ MCBstate PowerUP(void)
     Serial.print(MotorBoard.numModules());
     Serial.println(" motor modules detected and configured");
 
-	// create pin change interrupt for CTRL switch
-	attachInterrupt(MotorBoard.pins.CTRL, CTRLswitchCallback, CHANGE);
-	CTRLswitchCallback(); // run once to initialize stateCTRL 
+	// create pin change interrupt for mode switch
+	attachInterrupt(MotorBoard.pins.modeSelect, modeSwitchCallback, CHANGE);
+	modeSwitchCallback(); // run once to initialize modeState 
+    
+	// advance based on mode switch position 
+	switch (modeState) {
+	case Manual:
+		return stateManualIdle;
 
-	// advance based on CTRL switch position 
-	switch (stateCTRL) {
-	case local:
-		return stateLocalIdle;
-
-	case remote:
+	case Ros:
 		return stateRosInit;
 	}
 }
 
-MCBstate LocalIdle(void)
+MCBstate ManualIdle(void)
 {
-	stateCurrent = stateLocalIdle;
+	stateCurrent = stateManualIdle;
 
-	Serial.println("\nEntering Local Idle State");
+	Serial.println("\nEntering Manual Idle State");
 
 	// ensure amps are off and controller is not running
 	MotorBoard.disableAllAmps();
@@ -141,7 +142,7 @@ MCBstate LocalIdle(void)
 	bool configFinished = false;
 
 	// wait until gains have been set via serial OR user overrides by holding buttons
-	while ((stateCTRL == local) && !configFinished) {
+	while ((modeState == Manual) && !configFinished) {
 		// check for serial commands
 		if (Serial.available() > 0) {
 			char cmd = Serial.read();
@@ -219,21 +220,21 @@ MCBstate LocalIdle(void)
 	}
 	Serial.println("done");
 
-	// advance based on CTRL switch position
-	switch (stateCTRL) {
-	case local:
-		return stateLocalControl;
+	// advance based on mode switch position
+	switch (modeState) {
+	case Manual:
+		return stateManualControl;
 
-	case remote:
+	case Ros:
 		return stateRosInit;
 	}
 }
 
-MCBstate LocalControl()
+MCBstate ManualControl()
 {
-	stateCurrent = stateLocalControl;
+	stateCurrent = stateManualControl;
 
-	Serial.println("\nEntering Local Control State");
+	Serial.println("\nEntering Manual Control State");
 
 	// set desired motor position to current position (prevents unexpected movement)
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) 
@@ -248,14 +249,14 @@ MCBstate LocalControl()
 	// start PID controllers
 	timerPid.begin(timerPidCallback, timeStepPid);
 
-	// start local control
-	timerLocalControl.begin(timerLocalControlCallback, timeStepLocalControl);
+	// start manual control
+	timerManualControl.begin(timerManualControlCallback, timeStepManualControl);
 
 	// flash led of currently selected motor
 	timerMotorSelectLed.begin(motorSelectLedCallback, 350000);
 
-	// keep running until CTRL switch changed to remote OR serial command detected
-	while (stateCTRL == local) 
+	// keep running until mode switch changed to Ros OR serial command detected
+	while (modeState == Manual) 
 	{
     // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
         noInterrupts();
@@ -275,7 +276,7 @@ MCBstate LocalControl()
 			{
 				Serial.println("'Stop' command received");
 				// stop checking buttons
-				timerLocalControl.end();
+				timerManualControl.end();
 				timerMotorSelectLed.end();
 
 				// power off motors and disable PID controller
@@ -285,22 +286,22 @@ MCBstate LocalControl()
 				// turn off green LEDs
 				MotorBoard.setLEDG(LOW);
 
-				// return to Local Idle state to process command
-				return stateLocalIdle;
+				// return to Manual Idle state to process command
+				return stateManualIdle;
 			}
 		}
 
-        // run local control on a timer so a held button produces a constant velocity
-        if (timerLocalControlFlag) {
-            runLocalControl();
-            timerLocalControlFlag = false;
+        // run manual control on a timer so a held button produces a constant velocity
+        if (timerManualControlFlag) {
+            runManualControl();
+            timerManualControlFlag = false;
         }
 
         interrupts();
 	}
 
 	// stop checking buttons
-	timerLocalControl.end();
+	timerManualControl.end();
 	timerMotorSelectLed.end();
 
 	// power off motors and disable PID controller
@@ -310,12 +311,14 @@ MCBstate LocalControl()
 	// turn off green LEDs
 	MotorBoard.setLEDG(LOW);
 
-	return stateRosInit; // while() only exits if CTRL switched to 'remote'
+	return stateRosInit; // while() only exits if mode switched to 'Ros'
 }
 
 MCBstate RosInit()
 {
 	stateCurrent = stateRosInit;
+
+    ROSenable = false;
 
 	Serial.println("\nEntering ROS Initialization state");
 
@@ -324,15 +327,15 @@ MCBstate RosInit()
 	nh.initNode();
 
 	// repeatedly attempt to setup the hardware, loop on fail, stop on success
-	while ((nh.getHardware()->error() < 0) && (stateCTRL == remote)) {
+	while ((nh.getHardware()->error() < 0) && (modeState == Ros)) {
 		Serial.print("WIZnet eror = ");
 		Serial.println(nh.getHardware()->error());
 
 		nh.initNode();
 	}
 
-	if (stateCTRL == local) {
-		return stateLocalIdle;
+	if (modeState == Manual) {
+		return stateManualIdle;
 	}
 
 	Serial.println("Success!");
@@ -346,15 +349,15 @@ MCBstate RosInit()
     nh.advertiseService(srvGetGains);
     nh.advertiseService(srvStatusMCB);
 
-    // wait until connection established or CTRL switched to 'local'
-	while (!nh.connected() && (stateCTRL == remote)) {
+    // wait until connection established or mode switched to 'Manual'
+	while (!nh.connected() && (modeState == Ros)) {
         noInterrupts();
 		nh.spinOnce();
         interrupts();
 	}
 
-	if (stateCTRL == local) {
-		return stateLocalIdle;
+	if (modeState == Manual) {
+		return stateManualIdle;
 	}
 
 	Serial.println("Success!");
@@ -397,11 +400,11 @@ MCBstate RosInit()
 	}
 	Serial.println("done");
 
-	switch (stateCTRL) {
-	case local:
-		return stateLocalIdle;
+	switch (modeState) {
+	case Manual:
+		return stateManualIdle;
 
-	case remote:
+	case Ros:
 		return stateRosIdle;
 	}
 }
@@ -414,7 +417,7 @@ MCBstate RosIdle()
 	Serial.println("waiting for enable signal via enableMCB_srv");
 
 	// wait for ROS enable command via service call
-	while (!ROSenable && nh.connected() && (stateCTRL == remote)) {
+	while (!ROSenable && nh.connected() && (modeState == Ros)) {
         noInterrupts();
 		nh.spinOnce();
         interrupts();
@@ -424,11 +427,11 @@ MCBstate RosIdle()
 		return stateRosInit;
 	}
 
-	switch (stateCTRL) {
-	case local:
-		return stateLocalIdle;
+	switch (modeState) {
+	case Manual:
+		return stateManualIdle;
 
-	case remote:
+	case Ros:
 		return stateRosControl;
 	}
 }
@@ -455,36 +458,51 @@ MCBstate RosControl()
 	// start ROS update timer
 	timerRos.begin(timerRosCallback, timeStepRos);
 
-	// loop until disconnected OR ROS 'disable' command OR CTRL switched to 'local'
-	while (ROSenable && nh.connected() && (stateCTRL == remote)) 
+    noInterrupts();
+    uint32_t rosLoopCount = 0;
+
+	// loop until disconnected OR ROS 'disable' command OR mode switched to 'Manual'
+	while (ROSenable && nh.connected() && (modeState == Ros)) 
     { 
     // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
-        noInterrupts(); // ensure all actions are completed without interruptions
+        
+        //MotorBoard.setLEDG(1, HIGH);
+        interrupts();
+        // process any interrupt calls here
+        noInterrupts();
+        //MotorBoard.setLEDG(1, LOW);
 
         if (timerPidFlag) {
+            //MotorBoard.setLEDG(2, HIGH);
             // read encoders, compute PID effort, update DACs
             MotorBoard.stepPID();
             
             timerPidFlag = false;
+            //MotorBoard.setLEDG(2, LOW);
         }
 
         if (timerRosFlag) {
-            // assemble encoder message to send out
-            for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-                msgEncoderCurrent.measured[ii] = MotorBoard.getCountLast(ii);
-                msgEncoderCurrent.desired[ii] = MotorBoard.getCountDesired(ii);
-            }
+            /*MotorBoard.setLEDG(2, HIGH);*/
             
-            // queue messages into their publishers
-            pubEncoderCurrent.publish(&msgEncoderCurrent);
+            if (rosLoopCount % publishInterval == 0) {
+                // assemble encoder message to send out
+                for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
+                    msgEncoderCurrent.measured[ii] = MotorBoard.getCountLast(ii);
+                    msgEncoderCurrent.desired[ii] = MotorBoard.getCountDesired(ii);
+                }
+                // queue messages into their publishers
+                pubEncoderCurrent.publish(&msgEncoderCurrent);
+            }
+            rosLoopCount++;
 
+            //MotorBoard.setLEDG(2, LOW);
             // process pending ROS communications
+            MotorBoard.setLEDG(3, HIGH);
             nh.spinOnce();
 
             timerRosFlag = false;
+            MotorBoard.setLEDG(3, LOW);
         }
-
-        interrupts(); // re-enable so interrupts can be processed
 	}
 
 	// power off motors, disable PID controller, and stop ROS timer
@@ -500,8 +518,8 @@ MCBstate RosControl()
 		return stateRosInit;
 	}
 
-	if (stateCTRL == local) {
-		return stateLocalIdle;
+	if (modeState == Manual) {
+		return stateManualIdle;
 	}
 	else { // 'stop' command must have been received
 		return stateRosIdle; 
@@ -511,9 +529,9 @@ MCBstate RosControl()
 //--------------------------------------------------------------------------------------//
 //--------------------------------------------------------------------------------------//
 
-void CTRLswitchCallback(void)
+void modeSwitchCallback(void)
 {
-	stateCTRL = (digitalReadFast(MotorBoard.pins.CTRL) ? local : remote);
+	modeState = (digitalReadFast(MotorBoard.pins.modeSelect) ? Manual : Ros);
 }
 
 void timerPidCallback(void)
@@ -528,14 +546,14 @@ void timerRosCallback(void)
 
 void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired& encCommands)
 {
-    noInterrupts();
+    //noInterrupts();
 
 	// set desired motor positions with values received over ROS
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setCountDesired(ii, encCommands.desired[ii]);
 	}
 	
-    interrupts();
+    //interrupts();
 }
 
 void motorSelectLedCallback(void)
@@ -543,12 +561,12 @@ void motorSelectLedCallback(void)
     MotorBoard.toggleLEDG(currentMotorSelected);
 }
 
-void timerLocalControlCallback(void)
+void timerManualControlCallback(void)
 {
-    timerLocalControlFlag = true;
+    timerManualControlFlag = true;
 }
 
-void runLocalControl(void)
+void runManualControl(void)
 {
 	MotorBoard.readButtons();
 
@@ -581,19 +599,17 @@ void runLocalControl(void)
 		MotorBoard.enableAllAmps();
 	}
 	else if (MotorBoard.isUpPressed()) {
-		countDesired[currentMotorSelected] += countStepLocalControl;
+		countDesired[currentMotorSelected] += countStepManualControl;
 		MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
 	}
 	else if (MotorBoard.isDownPressed()) {
-		countDesired[currentMotorSelected] -= countStepLocalControl;
+		countDesired[currentMotorSelected] -= countStepManualControl;
 		MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
 	}
 }
 
 void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) 
 {
-    noInterrupts();
-
 	if (req.data) { // 'run' command
 		if (ROSenable) {
 			res.success = true;
@@ -622,13 +638,12 @@ void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool
 			res.message = "Error: MCB not in ROS Control state";
 		}
 	}
-
-    interrupts();
 }
 
 void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest & req, beginner_tutorials::srvGetGainsResponse & res)
 {
-    noInterrupts();
+    Serial.print("Entered GetGains CB ... ");
+    //noInterrupts();
 
     // ensure a module exists at location requested
     if (!MotorBoard.isModuleConfigured(req.module)) {
@@ -644,14 +659,16 @@ void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest & req, beg
         res.ki = gains.at(1);
         res.kd = gains.at(2);
         res.success = 1;
+        res.errorMessage = "no error";
     }
 
-    interrupts();
+    //interrupts();
+    Serial.println("returned");
 }
 
 void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest & req, beginner_tutorials::srvSetGainsResponse & res)
 {
-    noInterrupts();
+    //noInterrupts();
 
     // ensure a module exists at location requested
     if (!MotorBoard.isModuleConfigured(req.moduleToSet)) {
@@ -663,21 +680,28 @@ void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest & req, beg
         res.success = 1;
     }
 
-    interrupts();
+    //interrupts();
 }
 
 void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest & req, beginner_tutorials::srvStatusMCBResponse & res)
 {
-    noInterrupts();
+    //noInterrupts();
 
     res.numModules = MotorBoard.numModules();
     res.currentState = MCBstateToString(stateCurrent);
+
+    for (int ii = 0; ii < 6; ii++) {
+        res.encoderCommand[ii] = MotorBoard.getCountDesired(ii);
+        res.encoderCurrent[ii] = MotorBoard.getCountLast(ii);
+        res.controllerEffort[ii] = MotorBoard.getEffort(ii);
+    }
+
     uint32_t tmpIP = (uint32_t)nh.getHardware()->wiznet_ip;
     memcpy(res.ip, &tmpIP, 4);
     memcpy(res.mac, nh.getHardware()->wiznet_mac, 6);
     res.limitSwitchTriggered = false;
 
-    interrupts();
+    //interrupts();
 }
 
 char* MCBstateToString(MCBstate currentState) {
@@ -688,11 +712,11 @@ char* MCBstateToString(MCBstate currentState) {
     case statePowerUp:
         stateName = "Power Up";
         break;
-    case stateLocalIdle:
-        stateName = "Local Idle";
+    case stateManualIdle:
+        stateName = "Manual Idle";
         break;
-    case stateLocalControl:
-        stateName = "Local Control";
+    case stateManualControl:
+        stateName = "Manual Control";
         break;
     case stateRosInit:
         stateName = "ROS Init";

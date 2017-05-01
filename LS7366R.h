@@ -75,6 +75,12 @@ union uint8_uint32
 	uint8_t byte[4];
 	uint32_t value;
 };
+
+union uint8_int32
+{
+    uint8_t byte[4];
+    int32_t value;
+};
 #endif
 
 class LS7366R

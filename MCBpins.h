@@ -47,7 +47,9 @@ public:
 		digitalWriteFast(csDAC, HIGH);
 
 		// CTRL switch input
-		pinMode(CTRL, INPUT);
+		pinMode(modeSelect, INPUT);
+
+        // input pin to detect changes 
 
 		// pins for daughterboard modules
 		for (uint8_t aa = 0; aa < maxNumBoards; aa++)
@@ -58,9 +60,9 @@ public:
 			// status LEDs (green)
 			pinMode(LEDG[aa], OUTPUT);
 			digitalWriteFast(LEDG[aa], LOW);
-			// software brakes (LOW = amps disabled)
+			// software brakes (HIGH = amps disabled)
 			pinMode(ampEnable[aa], OUTPUT);
-			digitalWriteFast(ampEnable[aa], LOW);
+			digitalWriteFast(ampEnable[aa], HIGH);
 		}
 
 		// end reset pulse for WIZ820io
@@ -73,10 +75,13 @@ public:
 	const uint8_t resetWIZ = 9; // WIZ820io reset pin
 	const uint8_t csWIZ = 10;	// WIZ820io chip-select pin
 	const uint8_t csDAC = 27;   // global chip-select pin (SYNC) for DACs
-	const uint8_t CTRL = 28;    // CTRL switch input
+	//const uint8_t CTRL = 28;    // CTRL switch input
+    const uint8_t modeSelect = 28; // connected to manual/ROS mode select switch
 	const uint8_t csLS7366R[6] = { 20, 17, 15, 29, 32, 30 }; // chip-select pins  !! if changed also change MCBmodule.pinEnc !!
-	const uint8_t ampEnable[6] = { 21, 16, 14, 25, 33, 31 }; // motor amp enable pins (HIGH = POWER ON)
-	const uint8_t LEDG[6] = { 24, 7, 6, 5, 3, 2 };   // control the green status LEDs
+    const uint8_t ampEnable[6] = { 21, 16, 14, 25, 33, 31 }; // motor amp enable pins (HIGH = POWER ON)
+    //const uint8_t ampCtrl[6] = { 21, 16, 14, 25, 26, 31 }; // motor amp enable pins (HIGH = POWER ON)
+    const uint8_t ampEnableInt = 22; // interrupt pin of MCP23008; signals when the enable pin of an amp changes
+    const uint8_t LEDG[6] = { 24, 7, 6, 5, 3, 2 };   // control the green status LEDs
 	const uint8_t buttonDown = 0;
 	const uint8_t buttonUp = 1;
 	const uint8_t buttonMenu = 23;

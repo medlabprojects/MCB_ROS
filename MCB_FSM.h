@@ -31,14 +31,14 @@ Changelog-
 
 // Motor Control Board
 void motorSelectLedCallback(void);
-void CTRLswitchCallback(void);
+void modeSwitchCallback(void);
 
 // Finite State Machine
-enum MCBstate { statePowerUp, stateLocalIdle, stateLocalControl, stateRosInit, stateRosIdle, stateRosControl };
+enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };
 char* MCBstateToString(MCBstate currentState);
 MCBstate PowerUP(void);
-MCBstate LocalIdle(void);
-MCBstate LocalControl(void);
+MCBstate ManualIdle(void);
+MCBstate ManualControl(void);
 MCBstate RosInit(void);
 MCBstate RosIdle(void);
 MCBstate RosControl(void);
@@ -55,8 +55,8 @@ void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest &req, begi
 void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest &req, beginner_tutorials::srvSetGainsResponse &res); // callback for service srvSetGains
 void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest &req, beginner_tutorials::srvStatusMCBResponse &res); // callback for service srvStatusMCB
 
-// Local Control
-void timerLocalControlCallback(void);
-void runLocalControl(void);
+// Manual Control
+void timerManualControlCallback(void);
+void runManualControl(void);
 
 #endif // !MCB_FSM_H
