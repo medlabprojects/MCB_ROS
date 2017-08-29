@@ -28,30 +28,28 @@
 class MCBmodule
 {
 public:
-	MCBmodule(uint8_t position);
+	MCBmodule(uint8_t csEnc); // needs to know SPI chip-select pin for it's encoder
 	~MCBmodule(void);
 	
 	bool init(float kp, float ki, float kd); // initializes encoder/PID controller and enables module
 	bool init(void); // ^^ except initializes with PID gains all set to 0.0
 	void setStatus(bool status); // start or stop module (and thus, the associated motor)
-	bool getStatus(void); 
+	bool getStatus(void);
 
-	// DAC
-	void setMaxAmps(float maxAmps); // [Amps] set based on motor current corresponding to max DAC output
-	float getMaxAmps(void);         // DOES NOT directly limit current!! This must be done via ESCON Studio software
+    // Motor
+    void setMotorPolarity(bool polarity);
 
 	// Encoder
-	uint8_t getENCpin(void);	 // returns LS7366R chip select pin
 	void setCountDesired(int32_t countDesired); // sets target position for motor in encoder counts
 	int32_t getCountDesired(void);
 	int32_t readCount(void); // reads current position from encoder
 	int32_t getCountLast(void); // returns result of most recent read_count(), does NOT query encoder
 
 	// PID Controller
-	int16_t step(void);	// steps the PID controller, returns next DAC value
-	void restartPID(void); // call this after changing gains, resets state buffer to zeros
+	uint16_t step(void);	// steps the PID controller, returns next DAC command
+	void restartPid(void); // call this after changing gains, resets state buffer to zeros
 	int32_t getError(void); // [counts] returns last computed error
-	float getEffort(void); // [Amps] returns last computed effort
+	float getEffort(void); // [volts] returns last computed effort
 	void setGains(float kp, float ki, float kd);
 	void setKp(float kp);
 	float getKp(void);
@@ -59,22 +57,22 @@ public:
 	float getKi(void);
 	void setKd(float kd);
 	float getKd(void);
-	int16_t convertEffortToDAC(float effort); // converts a motor effort [Amps] to a DAC command
-                                  
+	uint16_t effortToDacCommand(float effort); // converts a motor effort [volts] to a DAC command [0,2^16]                    
 
 private:
-	uint8_t position_; // module position on the motor board (i.e. physical slot)
 	bool status_ = false; // module starts disabled
-	
+
+    // Motor
+    bool motorPolarity_ = 1; // used to make sure positive current -> positive encoder counts
+
 	// DAC
-	float maxAmps_ = 1.0; // [Amps] maximum motor current, PID will assumes this corresponds to max DAC value
+    float dacRange_[2] = { -10.0, 10.0 }; // [volts] DAC output range; PID effort will be scaled/saturated based on these values
 
 	// Encoder
-	uint8_t pinsENC_[6] = { 20, 17, 15, 29, 32, 30 }; // LS7366R chip select pins (MCB Rev 1.2)
-	LS7366R ENC_; // Quadrature encoder interface
+	LS7366R enc_; // Quadrature encoder interface
 	
 	// PID
-	PID_f32 PID_; // PID controller, 32-bit float version
+	PID_f32 pid_; // PID controller, 32-bit float version
 	int32_t countLast_ = 0;
 	volatile int32_t countDesired_ = 0;
 	int32_t	countError_ = 0;

@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+#include <Adafruit_MCP23008.h>
 #include "MCB_FSM.h"
 #include "MCB.h"
 #include "MCBmodule.h"
@@ -13,9 +15,7 @@
 #include <IntervalTimer.h>
 #include <ros.h>
 #include <Ethernet.h>
-#include "WiznetHardware.h" 
-#include <beginner_tutorials/EncoderMessage.h>
-#include <std_srvs\SetBool.h>
+#include "WiznetHardware.h"
 
 
 MCBstate nextState;

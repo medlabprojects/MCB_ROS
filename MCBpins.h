@@ -22,73 +22,101 @@ Changelog-
 #define MCBpins_h
 
 #include <stdint.h>
+#include <Adafruit_MCP23008.h>
 
 class MCBpins
 {
 public:
-	MCBpins(void) {}
+    MCBpins(void) {};
 
 	void init(void) // initializes all SPI chip-select pins
 	{
 		// begin reset for WIZ820io
-		pinMode(resetWIZ, OUTPUT);
-		digitalWriteFast(resetWIZ, LOW);
+		pinMode(resetWiz, OUTPUT);
+		digitalWriteFast(resetWiz, LOW);
 
 		// de-select WIZ820io
-		pinMode(csWIZ, OUTPUT);
-		digitalWriteFast(csWIZ, HIGH);
+		pinMode(csWiz, OUTPUT);
+		digitalWriteFast(csWiz, HIGH);
 
 		// de-select SD card
-		pinMode(csSD, OUTPUT);
-		digitalWriteFast(csSD, HIGH);
+		pinMode(csSdCard, OUTPUT);
+		digitalWriteFast(csSdCard, HIGH);
 
 		// de-select global pin for DACs (SYNC pin)
-		pinMode(csDAC, OUTPUT);
-		digitalWriteFast(csDAC, HIGH);
+		pinMode(csDac, OUTPUT);
+		digitalWriteFast(csDac, HIGH);
 
 		// CTRL switch input
 		pinMode(modeSelect, INPUT);
 
-        // input pin to detect changes 
+        // setup MCP23008
+        i2cPins.begin();
+        i2cPins.setInterruptMode(Adafruit_MCP23008::ActiveLow);
+        i2cPins.pinMode(i2cGpio, INPUT);
+        i2cPins.pinMode(i2cBrakeHw, INPUT);
+        i2cPins.attachInterrupt(i2cBrakeHw, CHANGE);
+        i2cPins.pinMode(i2cEnableM0, INPUT);
+        i2cPins.attachInterrupt(i2cEnableM0, CHANGE);
+        i2cPins.pinMode(i2cEnableM1, INPUT);
+        i2cPins.attachInterrupt(i2cEnableM1, CHANGE);
+        i2cPins.pinMode(i2cEnableM2, INPUT);
+        i2cPins.attachInterrupt(i2cEnableM2, CHANGE);
+        i2cPins.pinMode(i2cEnableM3, INPUT);
+        i2cPins.attachInterrupt(i2cEnableM3, CHANGE);
+        i2cPins.pinMode(i2cEnableM4, INPUT);
+        i2cPins.attachInterrupt(i2cEnableM4, CHANGE);
+        i2cPins.pinMode(i2cEnableM5, INPUT);
+        i2cPins.attachInterrupt(i2cEnableM5, CHANGE);
+
+        // interrupt pin for MCP23008
+        pinMode(i2cInt, INPUT);
 
 		// pins for daughterboard modules
 		for (uint8_t aa = 0; aa < maxNumBoards; aa++)
 		{
 			// de-select quadrature decoders
-			pinMode(csLS7366R[aa], OUTPUT);
-			digitalWriteFast(csLS7366R[aa], HIGH);
+			pinMode(csEnc[aa], OUTPUT);
+			digitalWriteFast(csEnc[aa], HIGH);
 			// status LEDs (green)
-			pinMode(LEDG[aa], OUTPUT);
-			digitalWriteFast(LEDG[aa], LOW);
+			pinMode(led[aa], OUTPUT);
+			digitalWriteFast(led[aa], LOW);
 			// software brakes (HIGH = amps disabled)
-			pinMode(ampEnable[aa], OUTPUT);
-			digitalWriteFast(ampEnable[aa], HIGH);
+			pinMode(ampCtrl[aa], OUTPUT);
+			digitalWriteFast(ampCtrl[aa], HIGH);
 		}
 
 		// end reset pulse for WIZ820io
-		digitalWriteFast(resetWIZ, HIGH);
+		digitalWriteFast(resetWiz, HIGH);
 	}
 
-	// These pins are current as of Rev 1.2
-	const uint8_t maxNumBoards = 6; // number of daughterboard sockets
-	const uint8_t csSD = 4;     // SD card chip-select
-	const uint8_t resetWIZ = 9; // WIZ820io reset pin
-	const uint8_t csWIZ = 10;	// WIZ820io chip-select pin
-	const uint8_t csDAC = 27;   // global chip-select pin (SYNC) for DACs
-	//const uint8_t CTRL = 28;    // CTRL switch input
+	// These pins are current as of Rev 1.3
+    Adafruit_MCP23008 i2cPins; // extra GPIO available over I2C via MCP23008
+    const uint8_t i2cBrakeHw = 0;  // i2cPin: connected to hardware brake switch
+    const uint8_t i2cGpio = 1;     // i2cPin: extra GPIO with no function yet
+    const uint8_t i2cEnableM5 = 2; // i2cPin: state of enable pin for motor 5 amp
+    const uint8_t i2cEnableM4 = 3; // i2cPin: state of enable pin for motor 4 amp
+    const uint8_t i2cEnableM3 = 4; // i2cPin: state of enable pin for motor 3 amp
+    const uint8_t i2cEnableM2 = 5; // i2cPin: state of enable pin for motor 2 amp
+    const uint8_t i2cEnableM1 = 6; // i2cPin: state of enable pin for motor 1 amp
+    const uint8_t i2cEnableM0 = 7; // i2cPin: state of enable pin for motor 0 amp
+    const uint8_t i2cInt = 22; // interrupt pin of MCP23008; signals when the enable pin of an amp changes
+
+    const uint8_t maxNumBoards = 6; // number of daughterboard sockets
+	const uint8_t csSdCard = 4;     // SD card chip-select
+	const uint8_t resetWiz = 9; // WIZ820io reset pin
+	const uint8_t csWiz = 10;	// WIZ820io chip-select pin
+	const uint8_t csDac = 27;   // global chip-select pin (SYNC) for DACs (AD5761R)
     const uint8_t modeSelect = 28; // connected to manual/ROS mode select switch
-	const uint8_t csLS7366R[6] = { 20, 17, 15, 29, 32, 30 }; // chip-select pins  !! if changed also change MCBmodule.pinEnc !!
-    const uint8_t ampEnable[6] = { 21, 16, 14, 25, 33, 31 }; // motor amp enable pins (HIGH = POWER ON)
-    //const uint8_t ampCtrl[6] = { 21, 16, 14, 25, 26, 31 }; // motor amp enable pins (HIGH = POWER ON)
-    const uint8_t ampEnableInt = 22; // interrupt pin of MCP23008; signals when the enable pin of an amp changes
-    const uint8_t LEDG[6] = { 24, 7, 6, 5, 3, 2 };   // control the green status LEDs
+	const uint8_t csEnc[6] = { 20, 17, 15, 29, 32, 30 }; // chip-select pins for quadrature encoder IC (LS7366R)
+    const uint8_t ampCtrl[6] = { 21, 16, 14, 25, 26, 31 }; // motor amp control pins (HIGH = POWER ON)
+    const uint8_t led[6] = { 24, 7, 6, 5, 3, 2 };   // control the green LEDs
 	const uint8_t buttonDown = 0;
 	const uint8_t buttonUp = 1;
 	const uint8_t buttonMenu = 23;
 	const uint8_t buttons[3] = { buttonDown, buttonUp, buttonMenu };
-	const float buttonThresh[3] = { 1500, 1500, 1500 }; // thresholds that constitute a key press (pF)
+	const float   buttonThresh[3] = { 1500, 1500, 1500 }; // thresholds that constitute a key press (pF)
 	volatile bool buttonStates[3] = { 0, 0, 0 }; // volatile in case used within interrupt
-	//const DoubleVec buttonThresh = {1600, 1200, 1500}; // thresholds that constitute a key press (pF)
 };
 
 #endif

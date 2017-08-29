@@ -51,6 +51,9 @@
     <ClInclude Include="__vm\.MCB_ROS.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="McbRosConfiguration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AD5761R.cpp">

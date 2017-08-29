@@ -30,6 +30,7 @@
 #include "MCBpins.h"
 
 typedef std::vector<uint8_t>  Uint8Vec;
+typedef std::vector<int8_t>   Int8Vec;
 typedef std::vector<int16_t>  Int16Vec;
 typedef std::vector<int32_t>  Int32Vec;
 typedef std::vector<uint32_t> Uint32Vec;
@@ -46,21 +47,23 @@ public:
 
     uint8_t numModules(void); // returns number of motor modules detected
     BoolVec isModuleConfigured(void); // returns moduleConfigured_
-    bool isModuleConfigured(uint8_t positition); // returns moduleConfigured_[position]
+    bool isModuleConfigured(uint8_t position); // returns moduleConfigured_[position]
 
 	int  init(void); // initializes modules; returns number of detected modules
     void waitForButtonHold(void); // pauses program until Menu/Up/Down are all held for 2 seconds
     
-	void enableAmp(uint8_t position);  // sets inhibit pin for motor amp
+    void setPolarity(uint8_t position, bool polarity); // used to make sure positive current -> positive encoder counts
+    void setPolarity(bool polarity); // sets all modules
+    void enableAmp(uint8_t position);  // sets inhibit pin for motor amp
 	void disableAmp(uint8_t position); // sets inhibit pin for motor amp
 	void disableAllAmps(void); // disables all amps, regardles of numModules_
 	void enableAllAmps(void);  // NOTE: only enables n = numModules_
+    int8_t whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
+    Int8Vec whichLimitSwitches(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
 
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
     float getEffort(uint8_t position);   // returns computed effort of PID controller (prior to maxAmps saturation check)
-	void setMaxAmps(uint8_t position, float maxAmps); // [Amps] set based on motor current corresponding to max DAC output
-	float getMaxAmps(uint8_t position);               // DOES NOT directly limit current!! This must be done via ESCON Studio software
 	
     void setCountDesired(uint8_t position, int32_t countDesired); // set desired count of motor located at [position]
     int32_t  getCountDesired(uint8_t position); // returns the current target of motor located at [position]
@@ -68,7 +71,8 @@ public:
     Int32Vec getCountsLast(void); // returns most recent encoder counts
     int32_t getCountLast(uint8_t moduleNum); // returns most recent motor position
 
-    void stepPID(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
+    void stepPid(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
+    void restartPid(uint8_t position); // resets PID controller, but keeps gains
 
     void setLEDG(uint8_t position, bool state); // sets green LED
 	void setLEDG(bool state); // sets all green LEDs
