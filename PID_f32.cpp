@@ -33,7 +33,6 @@ void PID_f32::init(float32_t kp, float32_t ki, float32_t kd)
 
 void PID_f32::init()
 {
-
 	PID_.Kp = 0.0;
 	PID_.Ki = 0.0;
 	PID_.Kd = 0.0; 
@@ -42,27 +41,21 @@ void PID_f32::init()
 
 float32_t PID_f32::step(float32_t error)
 {
-	
 	float32_t out = arm_pid_f32(&PID_, error);
-
 	return out;
 }
 
 void PID_f32::reset()
 {
-	
 	arm_pid_reset_f32(&PID_); 
-
 }
 
 void PID_f32::setGains(float32_t kp, float32_t ki, float32_t kd)
 {
-	
 	PID_.Kp = kp;
 	PID_.Ki = ki;
 	PID_.Kd = kd;
 	arm_pid_init_f32(&PID_, 1); // recomputes A0,A1,A2 using new gains and resets state buffer
-
 }
 
 void PID_f32::getGains(float32_t& kp, float32_t& ki, float32_t& kd)

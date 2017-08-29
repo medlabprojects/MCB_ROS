@@ -6,7 +6,7 @@
 #include <SPI.h>
 
 MCB::MCB(void)
-	: DAC_(pins.csDAC)	
+	: DAC_(pins.csDac)	
 {	
 	// reserve memory for modules
 	modules_.reserve(pins.maxNumBoards);
@@ -146,7 +146,7 @@ void MCB::waitForButtonHold(void)
 void MCB::addModule(uint8_t position)
 {
     DACval_.push_back(0); // initialize DAC output values to 0
-	modules_.push_back(MCBmodule(position)); // create new MCBmodule and add to storage vector
+	modules_.push_back(MCBmodule(pins.csEnc[position])); // create new MCBmodule and add to storage vector
     moduleConfigured_.push_back(false);
 	moduleConfigured_.at(position) = modules_.at(position).init(); // initialize modules
 }
@@ -156,16 +156,29 @@ uint8_t MCB::numModules(void)
     return numModules_;
 }
 
+void MCB::setPolarity(uint8_t position, bool polarity)
+{
+    modules_.at(position).setMotorPolarity(polarity);
+}
+
+void MCB::setPolarity(bool polarity)
+{
+    for (uint8_t aa = 0; aa < pins.maxNumBoards; aa++)
+    {
+        setPolarity(aa, polarity);
+    }
+}
+
 void MCB::enableAmp(uint8_t position)
 {
 	// software brakes (LOW = amp enabled)
-	digitalWriteFast(pins.ampEnable[position], LOW);
+	digitalWriteFast(pins.ampCtrl[position], LOW);
 }
 
 void MCB::disableAmp(uint8_t position)
 {
 	// software brakes (HIGH = amp disabled)
-	digitalWriteFast(pins.ampEnable[position], HIGH);
+	digitalWriteFast(pins.ampCtrl[position], HIGH);
 }
 
 void MCB::disableAllAmps(void)
@@ -173,7 +186,7 @@ void MCB::disableAllAmps(void)
 	for (uint8_t aa = 0; aa < pins.maxNumBoards; aa++)
 	{
 		// software brakes (HIGH = amps disabled)
-		digitalWriteFast(pins.ampEnable[aa], HIGH);
+		digitalWriteFast(pins.ampCtrl[aa], HIGH);
 	}
 }
 
@@ -183,9 +196,123 @@ void MCB::enableAllAmps(void)
 	for (uint8_t aa = 0; aa < numModules_; aa++)
 	{
 		// software brakes (LOW = amps enabled)
-		digitalWriteFast(pins.ampEnable[aa], LOW);
+		digitalWriteFast(pins.ampCtrl[aa], LOW);
 		setLEDG(aa, LOW);
 	}
+}
+
+int8_t MCB::whichLimitSwitch(void)
+{
+    // multiple pins with interrupt conditions = -1
+    // no pins with interrupt conditions = -2
+    // 0-5 -> index of motor whose limit switch was triggered
+    // 6 -> E-stop or hardware brake was triggered
+    int8_t device;
+
+    int8_t triggeringPin = pins.i2cPins.whichInterrupt();
+
+    switch (triggeringPin) {
+    case -1:
+        device = -1; // multiple pins triggered
+        break;
+
+    case 0:
+        device = 6; // BrakeHW
+        break;
+
+    case 1:
+        device = 7; // i2cGpio
+        break;
+
+    case 2:
+        device = 5; // i2cEnableM5
+        break;
+
+    case 3:
+        device = 4; // i2cEnableM4
+        break;
+
+    case 4:
+        device = 3; // i2cEnableM3
+        break;
+
+    case 5:
+        device = 2; // i2cEnableM2
+        break;
+
+    case 6:
+        device = 1; // i2cEnableM1
+        break;
+
+    case 7:
+        device = 0; // i2cEnableM0
+        break;
+
+    default:
+        device = -2; // no pins triggered
+    }
+
+    return device;
+}
+
+Int8Vec MCB::whichLimitSwitches(void)
+{
+    Int8Vec devices;
+
+    // read INTF register of MCP23008
+    uint8_t triggeringPins = pins.i2cPins.readInterrupt();
+    
+    if (!triggeringPins) {
+        devices.push_back(-1);
+        return devices; // no interrupted pins detected
+    }
+
+    // check each bit to determine if it was triggered
+    for (int ii = 0; ii < 8; ii++) {
+        uint8_t tmp = triggeringPins;
+        tmp &= (1 << ii); // isolate bit ii
+
+        // if non-zero, determine the device corresponding to pin ii
+        if (tmp) {
+            switch (ii) {
+            case 0:
+                devices.push_back(6); // BrakeHW
+                break;
+            case 1:
+                devices.push_back(7); // i2cGpio
+                break;
+
+            case 2:
+                devices.push_back(5); // i2cEnableM5
+                break;
+
+            case 3:
+                devices.push_back(4); // i2cEnableM4
+                break;
+
+            case 4:
+                devices.push_back(3); // i2cEnableM3
+                break;
+
+            case 5:
+                devices.push_back(2); // i2cEnableM2
+                break;
+
+            case 6:
+                devices.push_back(1); // i2cEnableM1
+                break;
+
+            case 7:
+                devices.push_back(0); // i2cEnableM0
+                break;
+
+            default:
+                break; // no pins triggered
+            }
+        }
+    }
+    
+    return devices;
 }
 
 void MCB::setGains(uint8_t position, float kp, float ki, float kd)
@@ -208,17 +335,7 @@ float MCB::getEffort(uint8_t position)
     return modules_.at(position).getEffort();
 }
 
-void MCB::setMaxAmps(uint8_t position, float maxAmps)
-{
-	modules_.at(position).setMaxAmps(maxAmps);
-}
-
-float MCB::getMaxAmps(uint8_t position)
-{
-	return modules_.at(position).getMaxAmps();
-}
-
-void MCB::stepPID(void)
+void MCB::stepPid(void)
 {
 	
 	// step PID controllers
@@ -229,6 +346,11 @@ void MCB::stepPID(void)
 	
 	// update DACs
 	setDACs(DACval_);
+}
+
+void MCB::restartPid(uint8_t position)
+{
+    modules_.at(position).restartPid();
 }
 
 void MCB::setDACs(Int16Vec const &val)
@@ -248,7 +370,7 @@ void MCB::setDACs(Int16Vec const &val)
 void MCB::setLEDG(uint8_t position, bool state)
 {
 	LEDG_.at(position) = state;
-	digitalWriteFast(pins.LEDG[position], LEDG_.at(position));
+	digitalWriteFast(pins.led[position], LEDG_.at(position));
 }
 
 void MCB::setLEDG(bool state)
@@ -256,7 +378,7 @@ void MCB::setLEDG(bool state)
 	for (int ii = 0; ii < pins.maxNumBoards; ii++)
 	{
 		LEDG_.at(ii) = state;
-		digitalWriteFast(pins.LEDG[ii], LEDG_.at(ii));
+		digitalWriteFast(pins.led[ii], LEDG_.at(ii));
 	}
 }
 

@@ -35,7 +35,7 @@ AD5761R::AD5761R(const uint8_t csDAC)
 	// default settings
 	uint32_t CV  = CV_ZERO;		// CLEAR voltage = zero scale 
 	uint32_t OVR = OVR_DISABLE; // 5% overrange = disabled
-	uint32_t B2C = B2C_COMP;	// Bipolar range = twos complement coded (signed)
+	uint32_t B2C = B2C_BIN;	    // Bipolar range = straight binary encoded (uint16_t)
 	uint32_t ETS = ETS_ENABLE;  // Thermal shutdown = enabled
 	uint32_t IRO = IRO_ON;		// Internal reference = on
 	uint32_t PV  = PV_ZERO;		// Power up voltage = zero scale
@@ -70,16 +70,13 @@ void AD5761R::reset(void)
 	transfer(cmd_reset);
 }
 
-void AD5761R::set(int16_t output)
+void AD5761R::set(uint16_t output)
 {
 	// !! NOTE: must use beginTransfer() and endTransfer() !!
 
 	uint8_uint32 temp;
 
-	// signed 16 bit values are still stored in 32 bit register. Thus the signed bit is
-	// bit 31 (MSB) rather than bit 15. This workaround corrects for this issue.
-	temp.byte[0] = (uint8_t)(output & 0x00FF);
-	temp.byte[1] = (uint8_t)((output >> 8) & 0x00FF);
+    temp.value = output; // sets byte[0] and byte[1]
 	temp.byte[2] = WR_UPDATE>>16;
 	transfer(temp);
 }

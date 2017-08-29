@@ -23,15 +23,18 @@ Changelog-
 #include <ros.h>
 #include <Ethernet.h>
 #include "WiznetHardware.h"
-#include <beginner_tutorials/msgEncoderDesired.h>
-#include <beginner_tutorials\srvGetGains.h>
-#include <beginner_tutorials\srvSetGains.h>
-#include <beginner_tutorials\srvStatusMCB.h>
-#include <std_srvs\SetBool.h>
+#include <std_msgs\Bool.h>
+#include <std_msgs\Empty.h>
+#include <medlab_motor_control_board\EnableMotor.h>
+#include <medlab_motor_control_board\McbEncoderCurrent.h>
+#include <medlab_motor_control_board\McbEncoders.h>
+#include <medlab_motor_control_board\McbGains.h>
+#include <medlab_motor_control_board\McbStatus.h>
 
 // Motor Control Board
-void motorSelectLedCallback(void);
-void modeSwitchCallback(void);
+void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
+void modeSwitchCallback(void); // ISR for mode switch on motherboard
+void limitSwitchCallback(void); // ISR for MCP23008 interrupt
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };
@@ -49,11 +52,17 @@ void timerPidCallback(void);
 
 // ROS
 void timerRosCallback(void);
-void subEncoderCommandCallback(const beginner_tutorials::msgEncoderDesired & encCommands); // callback for subscriber subEncoderCommand
-void srvEnableCallback(const std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); // callback for service srvEnableMCB
-void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest &req, beginner_tutorials::srvGetGainsResponse &res); // callback for service srvGetGains
-void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest &req, beginner_tutorials::srvSetGainsResponse &res); // callback for service srvSetGains
-void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest &req, beginner_tutorials::srvStatusMCBResponse &res); // callback for service srvStatusMCB
+void subEnableControllerCallback(const std_msgs::Bool& msg);
+void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor& msg);
+void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& msg); // callback for subscriber subEncoderCommand
+void subGetStatusCallback(const std_msgs::Empty& msg);
+void subSetGainsCallback(const medlab_motor_control_board::McbGains& msg);
+
+
+//void srvEnableCallback(const std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); // callback for service srvEnableMCB
+//void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest &req, beginner_tutorials::srvGetGainsResponse &res); // callback for service srvGetGains
+//void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest &req, beginner_tutorials::srvSetGainsResponse &res); // callback for service srvSetGains
+//void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest &req, beginner_tutorials::srvStatusMCBResponse &res); // callback for service srvStatusMCB
 
 // Manual Control
 void timerManualControlCallback(void);
