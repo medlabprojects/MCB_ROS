@@ -32,7 +32,7 @@ IntervalTimer timerManualControl; // Button read timer interrupt
 volatile bool timerManualControlFlag = false; // indicates timerManualControl has been called
 float frequencyManualControl = 500.0; // [Hz]
 uint32_t timeStepManualControl = uint32_t(1000000.0 / frequencyManualControl); // [us]
-uint32_t countStepManualControl = 100; // [counts] step size for each up/down button press
+uint32_t countStepManualControl = 200; // [counts] step size for each up/down button press
 
 // Limit switch and amplifier power control
 volatile bool limitSwitchFlag = false; // indicates ampCtrlIntCallback was triggered
@@ -63,7 +63,7 @@ volatile bool timerPidFlag = false; // indicates timerPid has been called
 int32_t countDesired[6]; // does this need to be volatile?
 float frequencyPid = 1000.0; // [Hz]
 uint32_t timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
-float kp = 0.0004, ki = 0.000002, kd = 0.01; // work well for 1 kHz
+float kp = 0.0010, ki = 0.000003, kd = 0.035; // work ok for 1 kHz, RE25 brushed motor
 // float kp = 0.0002, ki = 0.000001, kd = 0.01; // work ok for 2 kHz
 
 
@@ -514,27 +514,27 @@ MCBstate ManualControl()
         }
 
         // check serial for commands
-        if (Serial.available())
-        {
-            char cmd = Serial.read();
-            if ((cmd == 'x') || (cmd == 'X'))  // 'stop' command
-            {
-                Serial.println("'Stop' command received");
-                // stop checking buttons
-                timerManualControl.end();
-                timerMotorSelectLed.end();
+        //if (Serial.available())
+        //{
+        //    char cmd = Serial.read();
+        //    if ((cmd == 'x') || (cmd == 'X'))  // 'stop' command
+        //    {
+        //        Serial.println("'Stop' command received");
+        //        // stop checking buttons
+        //        timerManualControl.end();
+        //        timerMotorSelectLed.end();
 
-                // power off motors and disable PID controller
-                MotorBoard.disableAllAmps();
-                timerPid.end();
+        //        // power off motors and disable PID controller
+        //        MotorBoard.disableAllAmps();
+        //        timerPid.end();
 
-                // turn off green LEDs
-                MotorBoard.setLEDG(LOW);
+        //        // turn off green LEDs
+        //        MotorBoard.setLEDG(LOW);
 
-                // return to Manual Idle state to process command
-                return stateManualIdle;
-            }
-        }
+        //        // return to Manual Idle state to process command
+        //        return stateManualIdle;
+        //    }
+        //}
 
         // run manual control on a timer so a held button produces a constant velocity
         if (timerManualControlFlag) {
