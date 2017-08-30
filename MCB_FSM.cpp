@@ -293,50 +293,7 @@ MCBstate RosControl()
 
         //MotorBoard.setLEDG(1, LOW);
 
-        //if (limitSwitchFlag) {
-        //    // determine which device triggered the interrupt
-        //    int8_t device = MotorBoard.whichLimitSwitch();
-
-        //    // check if triggering device is a limit switch
-        //    if ((device >= 0) && (device <= 5)) {
-        //        // publish ROS message
-
-        //        // zero out encoder to prevent movement when power is restored
-        //        MotorBoard.setCountDesired(device, MotorBoard.getCountLast(device));
-
-        //        // reset PID controller to prevent windup
-        //        MotorBoard.restartPid(device);
-        //    }
-        //    // check if more than one device was triggered
-        //    else if (device == -1) {
-        //        Int8Vec devices = MotorBoard.whichLimitSwitches();
-
-        //        for (int ii = 0; ii < devices.size(); ii++) {
-        //            // publish ROS message
-
-        //            // zero out encoder to prevent movement when power is restored
-        //            MotorBoard.setCountDesired(devices.at(ii), MotorBoard.getCountLast(devices.at(ii)));
-
-        //            // restart PID controller to prevent windup
-        //            MotorBoard.restartPid(devices.at(ii));
-        //        }
-        //    }
-        //    // check if it is the E-stop
-        //    else if (device == 6){
-        //        // publish ROS message
-
-        //        for (int ii = 0; ii < 6; ii++) {
-        //            // publish ROS message
-
-        //            // zero out encoder to prevent movement when power is restored
-        //            MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
-
-        //            // restart PID controller to prevent windup
-        //            MotorBoard.restartPid(ii);
-        //        }
-        //    }
-        //    
-        //}
+        checkLimitSwitch();
 
         if (timerPidFlag) {
             //MotorBoard.setLEDG(2, HIGH);
@@ -524,6 +481,10 @@ MCBstate ManualControl()
             MotorBoard.stepPid();
 
             timerPidFlag = false;
+        }
+
+        if (limitSwitchFlag) {
+            MotorBoard.processLimitSwitch(); // module triggered indicated by green LED
         }
 
         // check serial for commands

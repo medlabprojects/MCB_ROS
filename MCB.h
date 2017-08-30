@@ -59,9 +59,8 @@ public:
 	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
 	bool disableAllAmps(void); // disables all amps, regardles of numModules_
 	bool enableAllAmps(void);  // NOTE: only enables n = numModules_
-    int8_t whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
-    Int8Vec whichLimitSwitches(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
-
+    void processLimitSwitch(void); // call this after limit switch interrupt detected
+    
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
     float getEffort(uint8_t position);   // returns computed effort of PID controller (prior to maxAmps saturation check)
@@ -91,12 +90,21 @@ public:
 
 private:
     std::vector<MCBmodule> modules_; // each module controls a single motor
+    void addModule(uint8_t position);  // creates and adds module to <vector>modules
+    BoolVec moduleConfigured_; // false if no module or module not configured successfully
+    uint8_t numModules_;
+
 	AD5761R DAC_; // provides access to all DACs
 	Int16Vec DACval_; // stores the current DAC output commands
-	Si5351 si5351_; // clock generator for encoder ICs (LS7366R)
+	
+    Si5351 si5351_; // clock generator for encoder ICs (LS7366R)
+
+    int8_t whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
+    Int8Vec whichLimitSwitches(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
+    BoolVec limitSwitchTriggered_ = { false, false, false, false, false, false }; // true when limit switch has been triggered
+	
+    BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
     void addModule(uint8_t position);  // creates and adds module to <vector>modules
-    uint8_t numModules_;
-    BoolVec moduleConfigured_; // false if no module or module not configured successfully
     BoolVec ampEnabled_; // stores enable state of each amp
     BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
 	bool isPinsInit = false; // true after pins.init() has been called
