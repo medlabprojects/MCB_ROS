@@ -260,6 +260,63 @@ bool MCB::enableAllAmps(void)
     return success; // false if any were unsuccessful
 }
 
+void MCB::processLimitSwitch(void)
+{
+    // determine which device triggered the interrupt
+    int8_t device = whichLimitSwitch();
+
+    if (device == -2) {
+        return; // none detected
+    }
+
+    setLEDG(false);
+
+    // check if triggering device is a limit switch
+    if ((device >= 0) && (device <= 5)) {
+        limitSwitchTriggered_[device] = true;
+
+        // indicate with green LED
+        setLEDG(device, true);
+
+        // zero out encoder to prevent movement when power is restored
+        setCountDesired(device, getCountLast(device));
+
+        // reset PID controller to prevent windup
+        restartPid(device);
+    }
+    // check if more than one device was triggered
+    else if (device == -1) {
+        
+        Int8Vec devices = whichLimitSwitches();
+
+        for (int ii = 0; ii < devices.size(); ii++) {
+            limitSwitchTriggered_[devices.at(ii)] = true;
+
+            // indicate with green LEDs
+            setLEDG(devices.at(ii), true);
+
+            // zero out encoder to prevent movement when power is restored
+            setCountDesired(devices.at(ii), getCountLast(devices.at(ii)));
+
+            // restart PID controller to prevent windup
+            restartPid(devices.at(ii));
+        }
+    }
+    // check if it is the E-stop
+    else if (device == 6) {
+        // indicate with green LEDs
+        setLEDG(true);
+
+        for (int ii = 0; ii < 6; ii++) {
+            // zero out encoder to prevent movement when power is restored
+            setCountDesired(ii, getCountLast(ii));
+
+            // restart PID controller to prevent windup
+            restartPid(ii);
+        }
+    }
+}
+
 int8_t MCB::whichLimitSwitch(void)
 {
     // multiple pins with interrupt conditions = -1
