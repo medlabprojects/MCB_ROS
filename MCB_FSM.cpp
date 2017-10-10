@@ -13,7 +13,7 @@
 #include <medlab_motor_control_board\McbStatus.h>
 #include <std_msgs\Bool.h>
 #include <std_msgs\Empty.h>
-#include <EEPROM\EEPROM.h>
+#include <EEPROM.h>
 
 /****************** GLOBALS *********************/
 
