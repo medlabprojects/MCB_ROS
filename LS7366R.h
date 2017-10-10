@@ -91,6 +91,7 @@ public:
 
 	bool init(void); // configures encoder and enables counting; returns configured_
 	int32_t getCount(void);   // returns current count
+    bool resetCount(void);    // resets the count to zero
     uint8_t readStatus(void); // returns STR and sets configured_
 	bool isConfigured(void);  // return configured_
 
