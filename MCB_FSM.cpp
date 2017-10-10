@@ -186,6 +186,8 @@ MCBstate RosInit()
 	nh.advertise(pubEncoderCurrent);
     nh.advertise(pubStatus);
 	nh.subscribe(subEncoderCommand);
+    nh.subscribe(subEncoderResetSingle);
+    nh.subscribe(subEncoderResetAll);
     nh.subscribe(subEnableMotor);
     nh.subscribe(subSetGains);
     nh.subscribe(subEnableController);
