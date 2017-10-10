@@ -96,6 +96,17 @@ int32_t LS7366R::getCount(void)
 	return count_temp.value;
 }
 
+bool LS7366R::resetCount(void)
+{
+    // must be properly configured first
+    if (isConfigured()) {
+        // clear CNTR register
+        write(CLR_CNTR);
+    }
+
+    return isConfigured();
+}
+
 uint8_t LS7366R::readStatus(void)
 {
     uint8_t tmp = read(READ_STR, 0x00);
