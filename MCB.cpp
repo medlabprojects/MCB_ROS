@@ -28,7 +28,7 @@ int MCB::init(void)
 	
 	// initialize encoder clock used by all LS7366R 
 	si5351_.init(SI5351_CRYSTAL_LOAD_8PF, 0);
-	si5351_.set_freq(3000000000ULL, 0ULL, SI5351_CLK0); // Set CLK1 to output 30 MHz
+	si5351_.set_freq(2000000000ULL, 0ULL, SI5351_CLK0); // Set CLK1 to output 20 MHz (max frequency when LS7366R Vdd = 3.3V)
 	si5351_.output_enable(SI5351_CLK1, 0); // Disable other clocks
 	si5351_.output_enable(SI5351_CLK2, 0);
 	
@@ -428,6 +428,24 @@ Int32Vec MCB::getCountsLast(void)
 int32_t MCB::getCountLast(uint8_t moduleNum)
 {	
 	return modules_.at(moduleNum).getCountLast();
+}
+
+bool MCB::resetCount(uint8_t moduleNum)
+{
+    return modules_.at(moduleNum).resetCount();
+}
+
+bool MCB::resetCounts(void)
+{
+    bool success = true;
+
+    for (int ii = 0; ii < numModules_; ii++) {
+        if (!resetCount(ii)) {
+            success = false; 
+        }
+    }
+
+    return success;
 }
 
 Uint32Vec MCB::readButtons(void)

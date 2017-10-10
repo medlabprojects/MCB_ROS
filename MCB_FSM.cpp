@@ -13,6 +13,7 @@
 #include <medlab_motor_control_board\McbStatus.h>
 #include <std_msgs\Bool.h>
 #include <std_msgs\Empty.h>
+#include <std_msgs\UInt8.h>
 #include <EEPROM.h>
 
 /****************** GLOBALS *********************/
@@ -45,9 +46,11 @@ medlab_motor_control_board::McbEncoderCurrent msgEncoderCurrent; // stores most 
 medlab_motor_control_board::McbStatus msgStatus; // stores MCB status message
 ros::Publisher pubEncoderCurrent("tempname", &msgEncoderCurrent); // publishes current motor positions
 ros::Publisher pubStatus("tempname", &msgStatus); // publishes MCB status
-ros::Subscriber<medlab_motor_control_board::McbEncoders> subEncoderCommand("tempname", &subEncoderCommandCallback); // receives motor commands
 ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempname", &subEnableMotorCallback); // enables motor power to a specific motor
 ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tempname", &subSetGainsCallback); // sets gains for a specific motor
+ros::Subscriber<medlab_motor_control_board::McbEncoders> subEncoderCommand("tempname", &subEncoderCommandCallback); // receives motor commands
+ros::Subscriber<std_msgs::UInt8>                         subEncoderResetSingle("tempname", &subEncoderResetSingleCallback); // resets a single encoder to zero
+ros::Subscriber<std_msgs::Empty>                         subEncoderResetAll("tempname", &subEncoderResetAllCallback); // resets all encoders to zero
 ros::Subscriber<std_msgs::Bool>                          subEnableController("tempname", &subEnableControllerCallback); // used to move between RosIdle and RosControl states
 ros::Subscriber<std_msgs::Empty>                         subGetStatus("tempname", &subGetStatusCallback); // tells MCB to publish pubStatus
 
@@ -148,13 +151,16 @@ MCBstate RosInit()
 
     // set up topics
     rosNameEncoderCurrent = rosNamespace + rosNameEncoderCurrent;
-    pubEncoderCurrent   = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
-    pubStatus           = ros::Publisher("status", &msgStatus);
-    subEncoderCommand   = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
-    subEnableMotor      = ros::Subscriber<medlab_motor_control_board::EnableMotor>("enable_motor", &subEnableMotorCallback);
-    subSetGains         = ros::Subscriber<medlab_motor_control_board::McbGains>("set_gains", &subSetGainsCallback);
-    subEnableController = ros::Subscriber<std_msgs::Bool>("enable_controller", &subEnableControllerCallback);
-    subGetStatus        = ros::Subscriber<std_msgs::Empty>("get_status", &subGetStatusCallback);
+    //pubEncoderCurrent = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
+    pubEncoderCurrent     = ros::Publisher("encoder_current", &msgEncoderCurrent);
+    pubStatus             = ros::Publisher("status", &msgStatus);
+    subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
+    subEncoderResetSingle = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderResetSingleCallback);
+    subEncoderResetAll    = ros::Subscriber<std_msgs::Empty>("encoder_reset_all", &subEncoderResetAllCallback);
+    subEnableMotor        = ros::Subscriber<medlab_motor_control_board::EnableMotor>("enable_motor", &subEnableMotorCallback);
+    subSetGains           = ros::Subscriber<medlab_motor_control_board::McbGains>("set_gains", &subSetGainsCallback);
+    subEnableController   = ros::Subscriber<std_msgs::Bool>("enable_controller", &subEnableControllerCallback);
+    subGetStatus          = ros::Subscriber<std_msgs::Empty>("get_status", &subGetStatusCallback);
 
 
 	// set up Wiznet and connect to ROS server
@@ -610,6 +616,20 @@ void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& ms
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setCountDesired(ii, msg.count[ii]);
 	}
+}
+
+void subEncoderResetSingleCallback(const std_msgs::UInt8 & msg)
+{
+    // ensure request is valid
+    if (msg.data <= MotorBoard.numModules) {
+        // reset the encoder count for the desired motor
+        MotorBoard.resetCount(msg.data);
+    }
+}
+
+void subEncoderResetAllCallback(const std_msgs::Empty & msg)
+{
+    MotorBoard.resetCounts();
 }
 
 void subGetStatusCallback(const std_msgs::Empty & msg)

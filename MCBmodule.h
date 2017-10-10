@@ -42,8 +42,9 @@ public:
 	// Encoder
 	void setCountDesired(int32_t countDesired); // sets target position for motor in encoder counts
 	int32_t getCountDesired(void);
-	int32_t readCount(void); // reads current position from encoder
+	int32_t readCount(void);    // reads current position from encoder
 	int32_t getCountLast(void); // returns result of most recent read_count(), does NOT query encoder
+    bool    resetCount(void);   // resets the encoder count to zero
 
 	// PID Controller
 	uint16_t step(void);	// steps the PID controller, returns next DAC command
