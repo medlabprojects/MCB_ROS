@@ -25,6 +25,7 @@ Changelog-
 #include "WiznetHardware.h"
 #include <std_msgs\Bool.h>
 #include <std_msgs\Empty.h>
+#include <std_msgs\UInt8.h>
 #include <medlab_motor_control_board\EnableMotor.h>
 #include <medlab_motor_control_board\McbEncoderCurrent.h>
 #include <medlab_motor_control_board\McbEncoders.h>
@@ -55,6 +56,8 @@ void timerRosCallback(void);
 void subEnableControllerCallback(const std_msgs::Bool& msg);
 void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor& msg);
 void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& msg); // callback for subscriber subEncoderCommand
+void subEncoderResetSingleCallback(const std_msgs::UInt8& msg); // resets a specific encoder (0-5) to zero
+void subEncoderResetAllCallback(const std_msgs::Empty& msg); // resets all encoders to zero
 void subGetStatusCallback(const std_msgs::Empty& msg);
 void subSetGainsCallback(const medlab_motor_control_board::McbGains& msg);
 

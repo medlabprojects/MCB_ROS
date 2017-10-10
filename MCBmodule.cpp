@@ -163,6 +163,21 @@ int32_t MCBmodule::getCountLast(void)
 	return countLast_;
 }
 
+bool MCBmodule::resetCount(void)
+{
+    bool success = false;
+
+    // reset count register to zero
+    enc_.resetCount();
+
+    // call readCount() to make sure we update countLast_
+    if (!readCount()) { // should be zero
+        success = true;
+    }
+
+    return success;
+}
+
 void MCBmodule::setGains(float kp, float ki, float kd)
 {
 	pid_.setGains(kp, ki, kd);

@@ -69,7 +69,9 @@ public:
     int32_t  getCountDesired(uint8_t position); // returns the current target of motor located at [position]
     Int32Vec getCountsDesired(void); // returns vector of last commanded count targets
     Int32Vec getCountsLast(void); // returns most recent encoder counts
-    int32_t getCountLast(uint8_t moduleNum); // returns most recent motor position
+    int32_t  getCountLast(uint8_t moduleNum); // returns most recent motor position
+    bool     resetCount(uint8_t moduleNum);   // resets the encoder count to zero
+    bool     resetCounts(void); // resets all encoders to zero
 
     void stepPid(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
     void restartPid(uint8_t position); // resets PID controller, but keeps gains
