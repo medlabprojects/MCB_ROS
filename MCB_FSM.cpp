@@ -621,7 +621,7 @@ void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& ms
 void subEncoderResetSingleCallback(const std_msgs::UInt8 & msg)
 {
     // ensure request is valid
-    if (msg.data <= MotorBoard.numModules) {
+    if (msg.data <= MotorBoard.numModules()) {
         // reset the encoder count for the desired motor
         MotorBoard.resetCount(msg.data);
     }
