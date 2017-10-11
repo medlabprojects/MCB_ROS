@@ -556,7 +556,7 @@ BoolVec MCB::isModuleConfigured(void)
 
 bool MCB::isModuleConfigured(uint8_t position)
 {
-    if (position >= numModules_) {
+    if (position >= moduleConfigured_.size()) {
         return 0;
     }
 
