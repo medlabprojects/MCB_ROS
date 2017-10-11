@@ -211,8 +211,8 @@ bool MCB::disableAmp(uint8_t position)
     // ensure module has been configured
     if (isModuleConfigured(position))
     {
-        // check that amp is not already enabled
-        if (!isAmpEnabled(position))
+        // check that amp is not already disabled
+        if (isAmpEnabled(position))
         {
             // toggle software brake (HIGH = amp disabled)
             digitalWriteFast(pins.ampCtrl[position], HIGH);
