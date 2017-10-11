@@ -149,6 +149,7 @@ void MCB::addModule(uint8_t position)
 	modules_.push_back(MCBmodule(pins.csEnc[position])); // create new MCBmodule and add to storage vector
     moduleConfigured_.push_back(false);
 	moduleConfigured_.at(position) = modules_.at(position).init(); // initialize modules
+    ampEnabled_.push_back(false);
 }
 
 uint8_t MCB::numModules(void)
@@ -171,6 +172,9 @@ void MCB::setPolarity(bool polarity)
 
 bool MCB::isAmpEnabled(uint8_t position)
 {
+    if (position >= numModules_) {
+        return 0;
+    }
     return ampEnabled_.at(position);
 }
 
@@ -552,6 +556,10 @@ BoolVec MCB::isModuleConfigured(void)
 
 bool MCB::isModuleConfigured(uint8_t position)
 {
+    if (position >= numModules_) {
+        return 0;
+    }
+
     return moduleConfigured_.at(position);
 }
 
