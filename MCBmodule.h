@@ -22,9 +22,6 @@
 #include "LS7366R.h"
 #include "PID_f32.h"
 
-#define MODULE_ENABLE  true
-#define MODULE_DISABLE false
-
 class MCBmodule
 {
 public:
@@ -33,8 +30,7 @@ public:
 	
 	bool init(float kp, float ki, float kd); // initializes encoder/PID controller and enables module
 	bool init(void); // ^^ except initializes with PID gains all set to 0.0
-	void setStatus(bool status); // start or stop module (and thus, the associated motor)
-	bool getStatus(void);
+	bool isConfigured(void); // returns true after proper initialization
 
     // Motor
     void setMotorPolarity(bool polarity);
@@ -61,7 +57,7 @@ public:
 	uint16_t effortToDacCommand(float effort); // converts a motor effort [volts] to a DAC command [0,2^16]                    
 
 private:
-	bool status_ = false; // module starts disabled
+    bool configured_ = false;
 
     // Motor
     bool motorPolarity_ = 1; // used to make sure positive current -> positive encoder counts

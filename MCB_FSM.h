@@ -53,8 +53,9 @@ void timerPidCallback(void);
 
 // ROS
 void timerRosCallback(void);
-void subEnableControllerCallback(const std_msgs::Bool& msg);
-void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor& msg);
+void subEnableRosControlCallback(const std_msgs::Bool& msg); // enters or exits RosControl state
+void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor& msg); // enables or disables a single motor
+void subEnableAllMotorsCallback(const std_msgs::Bool& msg); // enables or disables all motors
 void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& msg); // callback for subscriber subEncoderCommand
 void subEncoderResetSingleCallback(const std_msgs::UInt8& msg); // resets a specific encoder (0-5) to zero
 void subEncoderResetAllCallback(const std_msgs::Empty& msg); // resets all encoders to zero

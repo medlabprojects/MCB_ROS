@@ -169,36 +169,91 @@ void MCB::setPolarity(bool polarity)
     }
 }
 
-void MCB::enableAmp(uint8_t position)
+bool MCB::isAmpEnabled(uint8_t position)
 {
-	// software brakes (LOW = amp enabled)
-	digitalWriteFast(pins.ampCtrl[position], LOW);
+    return ampEnabled_.at(position);
 }
 
-void MCB::disableAmp(uint8_t position)
+bool MCB::enableAmp(uint8_t position)
 {
-	// software brakes (HIGH = amp disabled)
-	digitalWriteFast(pins.ampCtrl[position], HIGH);
+    bool success = false;
+
+    // ensure module has been configured
+    if (isModuleConfigured(position)) 
+    {
+        // check that amp is not already enabled
+        if (!isAmpEnabled(position)) 
+        {
+            // toggle software brake (LOW = amp enabled)
+            digitalWriteFast(pins.ampCtrl[position], LOW);
+
+            // update amp state
+            ampEnabled_[position] = true;
+        }
+
+        success = true;
+    }
+    else {
+        success = false;
+    }
+
+    return success;
 }
 
-void MCB::disableAllAmps(void)
+bool MCB::disableAmp(uint8_t position)
 {
-	for (uint8_t aa = 0; aa < pins.maxNumBoards; aa++)
-	{
-		// software brakes (HIGH = amps disabled)
-		digitalWriteFast(pins.ampCtrl[aa], HIGH);
-	}
+    bool success = false;
+
+    // ensure module has been configured
+    if (isModuleConfigured(position))
+    {
+        // check that amp is not already enabled
+        if (!isAmpEnabled(position))
+        {
+            // toggle software brake (HIGH = amp disabled)
+            digitalWriteFast(pins.ampCtrl[position], HIGH);
+
+            // update amp state
+            ampEnabled_[position] = false;
+        }
+
+        success = true;
+    }
+    else {
+        success = false;
+    }
+
+    return success;
 }
 
-void MCB::enableAllAmps(void)
+bool MCB::disableAllAmps(void)
 {
-	// enable motor amp outputs and turn on green LEDs
+    bool success = true;
+
+    // disable all motor amp outputs
 	for (uint8_t aa = 0; aa < numModules_; aa++)
 	{
-		// software brakes (LOW = amps enabled)
-		digitalWriteFast(pins.ampCtrl[aa], LOW);
-		setLEDG(aa, LOW);
+        if (!disableAmp(aa)) {
+            success = false;
+        }
 	}
+
+    return success; // false if any were unsuccessful
+}
+
+bool MCB::enableAllAmps(void)
+{
+    bool success = true;
+
+	// enable all motor amp outputs
+	for (uint8_t aa = 0; aa < numModules_; aa++)
+	{
+        if (!enableAmp(aa)) {
+            success = false;
+        }
+	}
+
+    return success; // false if any were unsuccessful
 }
 
 int8_t MCB::whichLimitSwitch(void)
@@ -337,11 +392,13 @@ float MCB::getEffort(uint8_t position)
 
 void MCB::stepPid(void)
 {
-	
 	// step PID controllers
 	for (uint8_t aa = 0; aa < modules_.size(); aa++)
 	{
-		DACval_.at(aa) = modules_.at(aa).step();
+        // only step controller if amp is enabled to prevent integral windup
+        if (isAmpEnabled(aa)) {
+            DACval_.at(aa) = modules_.at(aa).step();
+        }
 	}
 	
 	// update DACs
