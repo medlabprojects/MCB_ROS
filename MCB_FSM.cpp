@@ -26,7 +26,7 @@ McbRosConfiguration rosConfig;
 MCBstate stateCurrent;
 enum modeSwitchState { Manual, Ros };
 volatile modeSwitchState modeState;
-bool ROSenable = false; // ROS must set this true via 'serviceEnableMCB' to control motors
+bool ROSenable = false; // ROS must set this true via 'enable_ros_control' topic to control motors
 
 // Manual Control
 IntervalTimer timerManualControl; // Button read timer interrupt
@@ -46,12 +46,13 @@ medlab_motor_control_board::McbEncoderCurrent msgEncoderCurrent; // stores most 
 medlab_motor_control_board::McbStatus msgStatus; // stores MCB status message
 ros::Publisher pubEncoderCurrent("tempname", &msgEncoderCurrent); // publishes current motor positions
 ros::Publisher pubStatus("tempname", &msgStatus); // publishes MCB status
-ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempname", &subEnableMotorCallback); // enables motor power to a specific motor
+ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempname", &subEnableMotorCallback); // enables or disables power to a specific motor
+ros::Subscriber<std_msgs::Bool>                          subEnableAllMotors("tempname", &subEnableAllMotorsCallback); // enables or disables all motors
 ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tempname", &subSetGainsCallback); // sets gains for a specific motor
 ros::Subscriber<medlab_motor_control_board::McbEncoders> subEncoderCommand("tempname", &subEncoderCommandCallback); // receives motor commands
 ros::Subscriber<std_msgs::UInt8>                         subEncoderResetSingle("tempname", &subEncoderResetSingleCallback); // resets a single encoder to zero
 ros::Subscriber<std_msgs::Empty>                         subEncoderResetAll("tempname", &subEncoderResetAllCallback); // resets all encoders to zero
-ros::Subscriber<std_msgs::Bool>                          subEnableController("tempname", &subEnableControllerCallback); // used to move between RosIdle and RosControl states
+ros::Subscriber<std_msgs::Bool>                          subEnableRosControl("tempname", &subEnableRosControlCallback); // used to move between RosIdle and RosControl states
 ros::Subscriber<std_msgs::Empty>                         subGetStatus("tempname", &subGetStatusCallback); // tells MCB to publish pubStatus
 
 IntervalTimer timerRos; // ROS timer interrupt
@@ -158,8 +159,9 @@ MCBstate RosInit()
     subEncoderResetSingle = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderResetSingleCallback);
     subEncoderResetAll    = ros::Subscriber<std_msgs::Empty>("encoder_reset_all", &subEncoderResetAllCallback);
     subEnableMotor        = ros::Subscriber<medlab_motor_control_board::EnableMotor>("enable_motor", &subEnableMotorCallback);
+    subEnableAllMotors    = ros::Subscriber<std_msgs::Bool>("enable_all_motors", &subEnableAllMotorsCallback);
     subSetGains           = ros::Subscriber<medlab_motor_control_board::McbGains>("set_gains", &subSetGainsCallback);
-    subEnableController   = ros::Subscriber<std_msgs::Bool>("enable_controller", &subEnableControllerCallback);
+    subEnableRosControl   = ros::Subscriber<std_msgs::Bool>("enable_ros_control", &subEnableRosControlCallback);
     subGetStatus          = ros::Subscriber<std_msgs::Empty>("get_status", &subGetStatusCallback);
 
 
@@ -189,8 +191,9 @@ MCBstate RosInit()
     nh.subscribe(subEncoderResetSingle);
     nh.subscribe(subEncoderResetAll);
     nh.subscribe(subEnableMotor);
+    nh.subscribe(subEnableAllMotors);
     nh.subscribe(subSetGains);
-    nh.subscribe(subEnableController);
+    nh.subscribe(subEnableRosControl);
     nh.subscribe(subGetStatus);
 	
 
@@ -266,9 +269,9 @@ MCBstate RosControl()
 	}
 
 	// enable motor amps
-	MotorBoard.enableAllAmps();
+	//MotorBoard.enableAllAmps();
 
-	// start PID controllers
+	// start PID timer
 	timerPid.begin(timerPidCallback, timeStepPid);
 
 	// start ROS update timer
@@ -283,9 +286,11 @@ MCBstate RosControl()
     // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
         
         //MotorBoard.setLEDG(1, HIGH);
+
         interrupts();
         // process any interrupt calls here
         noInterrupts();
+
         //MotorBoard.setLEDG(1, LOW);
 
         //if (limitSwitchFlag) {
@@ -335,6 +340,7 @@ MCBstate RosControl()
 
         if (timerPidFlag) {
             //MotorBoard.setLEDG(2, HIGH);
+
             // read encoders, compute PID effort, update DACs
             MotorBoard.stepPid();
             
@@ -343,7 +349,7 @@ MCBstate RosControl()
         }
 
         if (timerRosFlag) {
-            /*MotorBoard.setLEDG(2, HIGH);*/
+            //MotorBoard.setLEDG(2, HIGH);
             
             if (rosLoopCount % publishInterval == 0) {
                 // assemble encoder message to send out
@@ -357,12 +363,11 @@ MCBstate RosControl()
             rosLoopCount++;
 
             //MotorBoard.setLEDG(2, LOW);
+
             // process pending ROS communications
-            MotorBoard.setLEDG(3, HIGH);
             nh.spinOnce();
 
             timerRosFlag = false;
-            MotorBoard.setLEDG(3, LOW);
         }
 	}
 
@@ -591,7 +596,7 @@ void timerRosCallback(void)
     timerRosFlag = true;
 }
 
-void subEnableControllerCallback(const std_msgs::Bool & msg)
+void subEnableRosControlCallback(const std_msgs::Bool & msg)
 {
     if (msg.data) {
         if (!ROSenable) {
@@ -607,9 +612,30 @@ void subEnableControllerCallback(const std_msgs::Bool & msg)
 
 void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor & msg)
 {
-    // first check current state of motor
+    if (msg.enable) 
+    {
+        // enable motor
+        MotorBoard.enableAmp(msg.motor);
+    }
+    else
+    {
+        // disable motor
+        MotorBoard.disableAmp(msg.motor);
+    }
+}
 
-    // enable motor amp
+void subEnableAllMotorsCallback(const std_msgs::Bool & msg)
+{
+    if (msg.data)
+    {
+        // enable all motors
+        MotorBoard.enableAllAmps();
+    }
+    else
+    {
+        // disable all motors
+        MotorBoard.disableAllAmps();
+    }
 }
 
 void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& msg)
@@ -646,7 +672,7 @@ void subGetStatusCallback(const std_msgs::Empty & msg)
         msgStatus.count_commanded[ii] = MotorBoard.getCountDesired(ii);
         msgStatus.count_current[ii] = MotorBoard.getCountLast(ii);
         msgStatus.control_effort[ii] = MotorBoard.getEffort(ii);
-        msgStatus.motor_enabled[ii] = true;
+        msgStatus.motor_enabled[ii] = MotorBoard.isAmpEnabled(ii);
         msgStatus.limit_switch[ii] = false;
         FloatVec gains = MotorBoard.getGains(ii);
         msgStatus.p[ii] = gains.at(0);

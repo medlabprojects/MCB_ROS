@@ -54,10 +54,11 @@ public:
     
     void setPolarity(uint8_t position, bool polarity); // used to make sure positive current -> positive encoder counts
     void setPolarity(bool polarity); // sets all modules
-    void enableAmp(uint8_t position);  // sets inhibit pin for motor amp
-	void disableAmp(uint8_t position); // sets inhibit pin for motor amp
-	void disableAllAmps(void); // disables all amps, regardles of numModules_
-	void enableAllAmps(void);  // NOTE: only enables n = numModules_
+    bool isAmpEnabled(uint8_t position); // true if amp output is enabled
+    bool enableAmp(uint8_t position);  // sets inhibit pin for motor amp
+	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
+	bool disableAllAmps(void); // disables all amps, regardles of numModules_
+	bool enableAllAmps(void);  // NOTE: only enables n = numModules_
     int8_t whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
     Int8Vec whichLimitSwitches(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
 
@@ -96,7 +97,8 @@ private:
     void addModule(uint8_t position);  // creates and adds module to <vector>modules
     uint8_t numModules_;
     BoolVec moduleConfigured_; // false if no module or module not configured successfully
-	BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
+    BoolVec ampEnabled_; // stores enable state of each amp
+    BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
 	bool isPinsInit = false; // true after pins.init() has been called
 };
 

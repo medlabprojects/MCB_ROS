@@ -29,8 +29,6 @@ MCBmodule::MCBmodule(uint8_t csEnc)
 
 bool MCBmodule::init(float kp, float ki, float kd)
 {
-    bool configured = false;
-
     // set up PID controller
     pid_.init(kp, ki, kd); 
 
@@ -40,17 +38,14 @@ bool MCBmodule::init(float kp, float ki, float kd)
     while (attempts < maxAttempts) {
         attempts++;
         if (enc_.init()) {
-            setStatus(MODULE_ENABLE);
-            configured = true;
+            configured_ = true;
         }
     }
-    return configured;
+    return configured_;
 }
 
 bool MCBmodule::init(void)
 {
-    bool configured = false;
-
     // set up PID controller
     pid_.init();
 
@@ -60,12 +55,16 @@ bool MCBmodule::init(void)
     while (attempts < maxAttempts) {
         attempts++;
         if (enc_.init()) {
-            setStatus(MODULE_ENABLE);
-            configured = true;
+            configured_ = true;
             break;
         }
     }
-    return configured;
+    return configured_;
+}
+
+bool MCBmodule::isConfigured(void)
+{
+    return configured_;
 }
 
 uint16_t MCBmodule::step(void)
@@ -77,14 +76,14 @@ uint16_t MCBmodule::step(void)
         polarity = -1;
     }
 
-	if (getStatus()){
+	if (isConfigured()){
 		// read current motor position and compute error
 		countError_ = countDesired_ - readCount();
 
 		// step PID controller to compute effort in Amps
 		effort_ = polarity * pid_.step(float(countError_));
 
-		// enforce max current bounds and convert to int16 for DAC
+		// enforce voltage output bounds (typically -10V to +10V) and convert to int16 for DAC
 		dacCmd = effortToDacCommand(effort_);
 
 	}
@@ -122,16 +121,6 @@ uint16_t MCBmodule::effortToDacCommand(float effort)
     // encode effort to 16-bit DAC code
     // DAC code = (2^16)*(effort - Vmin)/(Vmax - Vmin)
     return static_cast<uint16_t>( 65535.0 * (effortTemp - dacRange_[0]) / (dacRange_[1] - dacRange_[0]) );
-}
-
-void MCBmodule::setStatus(bool status)
-{
-	status_ = status;
-}
-
-bool MCBmodule::getStatus(void)
-{
-	return status_;
 }
 
 void MCBmodule::setMotorPolarity(bool polarity)
