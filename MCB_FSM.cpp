@@ -612,6 +612,16 @@ void subEnableRosControlCallback(const std_msgs::Bool & msg)
 
 void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor & msg)
 {
+    // MUST be in ROS Control state before enabling (otherwise PID isn't running)
+    if (stateCurrent != stateRosControl) {
+        return;
+    }
+
+    // check that requested motor has been configured
+    if (!MotorBoard.isModuleConfigured(msg.motor)) {
+        return;
+    }
+
     if (msg.enable) 
     {
         // enable motor
@@ -626,6 +636,11 @@ void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor & msg)
 
 void subEnableAllMotorsCallback(const std_msgs::Bool & msg)
 {
+    // MUST be in ROS Control state before enabling (otherwise PID isn't running)
+    if (stateCurrent != stateRosControl) {
+        return;
+    }
+
     if (msg.data)
     {
         // enable all motors
