@@ -127,12 +127,18 @@ MCBstate PowerUP(void)
     Serial.print(MotorBoard.numModules());
     Serial.println(" motor modules detected and configured");
 
+    // initialize limit switch states
+    MotorBoard.updateLimitSwitchStates();
+
+    // ensure amps are disabled
+    MotorBoard.disableAllAmps();
+
 	// create pin change interrupt for mode switch
 	attachInterrupt(MotorBoard.pins.modeSelect, modeSwitchCallback, CHANGE);
 	modeSwitchCallback(); // run once to initialize modeState
 
-    // create pin change interrupt for amplifier control/limit switch monitoring
-    attachInterrupt(MotorBoard.pins.i2cInt, limitSwitchCallback, CHANGE);
+    // create pin change interrupt for amplifier control/limit switch monitoring (active low)
+    attachInterrupt(MotorBoard.pins.i2cInt, limitSwitchISR, FALLING);
     
 	// advance based on mode switch position 
 	switch (modeState) {
@@ -235,9 +241,19 @@ MCBstate RosIdle()
 	Serial.println("\nEntering ROS Idle state");
 	Serial.println("waiting for enable signal via enable_controller");
 
+    // ensure amps are off
+    MotorBoard.disableAllAmps();
+
 	// wait for ROS enable command via service call
 	while (!ROSenable && nh.connected() && (modeState == Ros)) {
         noInterrupts();
+
+        if (limitSwitchFlag) {
+            MotorBoard.updateLimitSwitchStates();
+            MotorBoard.disableAllAmps();
+            limitSwitchFlag = false;
+        }
+      
 		nh.spinOnce();
         interrupts();
 	}
@@ -268,9 +284,6 @@ MCBstate RosControl()
 		MotorBoard.setCountDesired(ii, countDesired[ii]);
 	}
 
-	// enable motor amps
-	//MotorBoard.enableAllAmps();
-
 	// start PID timer
 	timerPid.begin(timerPidCallback, timeStepPid);
 
@@ -293,7 +306,14 @@ MCBstate RosControl()
 
         //MotorBoard.setLEDG(1, LOW);
 
-        checkLimitSwitch();
+        if (limitSwitchFlag) {
+            MotorBoard.updateLimitSwitchStates();
+
+            // publish limit switch info
+            
+
+            limitSwitchFlag = false;
+        }
 
         if (timerPidFlag) {
             //MotorBoard.setLEDG(2, HIGH);
@@ -370,6 +390,14 @@ MCBstate ManualIdle(void)
     rosConfig.printMenu();
     rosConfig.printWaitCommand();
     while ((modeState == Manual) && !configFinished) {
+        // ensure amps remain off
+        if (limitSwitchFlag) {
+            Serial.println("limitSwitchISR triggered");
+            MotorBoard.updateLimitSwitchStates();
+            MotorBoard.disableAllAmps();
+            limitSwitchFlag = false;
+        }
+
         // check for serial commands
         if (!rosConfig.runOnce()) {
             // user has selected an exit command
@@ -484,7 +512,9 @@ MCBstate ManualControl()
         }
 
         if (limitSwitchFlag) {
-            MotorBoard.processLimitSwitch(); // module triggered indicated by green LED
+            MotorBoard.updateLimitSwitchStates(); // module triggered indicated by green LED
+            limitSwitchFlag = false;
+            Serial.println("limit switch triggered");
         }
 
         // check serial for commands
@@ -536,7 +566,7 @@ MCBstate ManualControl()
 //--------------------------------------------------------------------------------------//
 //--------------------------------------------------------------------------------------//
 
-void limitSwitchCallback(void)
+void limitSwitchISR(void)
 {
     limitSwitchFlag = true;
 }

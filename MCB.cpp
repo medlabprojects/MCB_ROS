@@ -188,8 +188,9 @@ bool MCB::enableAmp(uint8_t position)
         // check that amp is not already enabled
         if (!isAmpEnabled(position)) 
         {
-            // toggle software brake (LOW = amp enabled)
-            digitalWriteFast(pins.ampCtrl[position], LOW);
+            // amp is enabled when ampCtrlState == limitSwitchState
+            ampCtrlState_[position] = limitSwitchState_.at(position);
+            digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
 
             // update amp state
             ampEnabled_[position] = true;
@@ -214,8 +215,9 @@ bool MCB::disableAmp(uint8_t position)
         // check that amp is not already disabled
         if (isAmpEnabled(position))
         {
-            // toggle software brake (HIGH = amp disabled)
-            digitalWriteFast(pins.ampCtrl[position], HIGH);
+            // amp is disabled when ampCtrlState != limitSwitchState
+            ampCtrlState_[position] = !limitSwitchState_.at(position);
+            digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
 
             // update amp state
             ampEnabled_[position] = false;
@@ -260,69 +262,157 @@ bool MCB::enableAllAmps(void)
     return success; // false if any were unsuccessful
 }
 
-void MCB::processLimitSwitch(void)
+void MCB::updateLimitSwitchStates(void)
 {
-    // determine which device triggered the interrupt
-    int8_t device = whichLimitSwitch();
+    /*
+                AMP ENABLE TRUTH TABLE
+    eStopState | limitSwitchState | ampCtrlState |=| ampEnabled
+    -----------------------------------------------------------
+        0      |        0         |       0      |=|     1
+        0      |        0         |       1      |=|     0
+        0      |        1         |       0      |=|     0
+        0      |        1         |       1      |=|     1
+        1      |        0         |       0      |=|     0
+        1      |        0         |       1      |=|     0
+        1      |        1         |       0      |=|     0
+        1      |        1         |       1      |=|     0
 
-    if (device == -2) {
-        return; // none detected
-    }
+    */
 
-    setLEDG(false);
 
-    // check if triggering device is a limit switch
-    if ((device >= 0) && (device <= 5)) {
-        limitSwitchTriggered_[device] = true;
+    // first check if e-stop is enabled
+    uint8_t i2cStates = pins.i2cPins.readGPIO();
+    eStopState_ = bitRead(i2cStates, pins.i2cBrakeHw);
 
-        // indicate with green LED
-        setLEDG(device, true);
+    if (!eStopState_)
+    {
+        // ampEnabled_ states can only be inferred if e-stop is not enabled
+        ampEnabled_[0] = bitRead(i2cStates, pins.i2cEnableM0);
+        ampEnabled_[1] = bitRead(i2cStates, pins.i2cEnableM1);
+        ampEnabled_[2] = bitRead(i2cStates, pins.i2cEnableM2);
+        ampEnabled_[3] = bitRead(i2cStates, pins.i2cEnableM3);
+        ampEnabled_[4] = bitRead(i2cStates, pins.i2cEnableM4);
+        ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
 
-        // zero out encoder to prevent movement when power is restored
-        setCountDesired(device, getCountLast(device));
-
-        // reset PID controller to prevent windup
-        restartPid(device);
-    }
-    // check if more than one device was triggered
-    else if (device == -1) {
-        
-        Int8Vec devices = whichLimitSwitches();
-
-        for (int ii = 0; ii < devices.size(); ii++) {
-            limitSwitchTriggered_[devices.at(ii)] = true;
-
-            // indicate with green LEDs
-            setLEDG(devices.at(ii), true);
-
-            // zero out encoder to prevent movement when power is restored
-            setCountDesired(devices.at(ii), getCountLast(devices.at(ii)));
-
-            // restart PID controller to prevent windup
-            restartPid(devices.at(ii));
+        // infer states of limit switches
+        for (uint8_t aa = 0; aa < ampEnabled_.size(); aa++) {
+            if (ampEnabled_.at(aa) == ampCtrlState_.at(aa)) {
+                // amp is only enabled when ampCtrlState = limitSwitchState
+                limitSwitchState_[aa] = ampCtrlState_.at(aa);
+            }
+            else {
+                limitSwitchState_[aa] = !ampCtrlState_.at(aa);
+            }
         }
     }
-    // check if it is the E-stop
-    else if (device == 6) {
-        // indicate with green LEDs
-        setLEDG(true);
-
-        for (int ii = 0; ii < 6; ii++) {
-            // zero out encoder to prevent movement when power is restored
-            setCountDesired(ii, getCountLast(ii));
-
-            // restart PID controller to prevent windup
-            restartPid(ii);
-        }
+    else // e-stop triggered
+    {
+        // for safety, ensure amps will be disabled after e-stop is disabled
+        disableAllAmps();
     }
+
+    // update green LEDs to indicate limit switch state
+    for (uint8_t aa = 0; aa < limitSwitchState_.size(); aa++) {
+        setLEDG(aa, limitSwitchState_.at(aa));
+    }
+
+    // reset interrupt
+    pins.i2cPins.resetInterrupts(); // NOTE: shouldn't be needed since readGPIO() above should reset it 
 }
+
+//void MCB::processLimitSwitch(void)
+//{
+//    // determine which device triggered the interrupt
+//    int8_t device = whichLimitSwitch();
+//
+//    if (device == -2) 
+//    {
+//        // none detected
+//        return; 
+//    }
+//
+//    setLEDG(false);
+//
+//    // check if more than one device was triggered
+//    // E-stop/hardware brake will cause all enable pins to trigger
+//    if (device == -1) {
+//
+//        Int8Vec devices = whichLimitSwitches();
+//
+//        for (int ii = 0; ii < devices.size(); ii++) {
+//            limitSwitchTriggered_[devices.at(ii)] = true;
+//
+//            // indicate with green LEDs
+//            setLEDG(devices.at(ii), true);
+//
+//            // sync desired with current count to prevent movement when power is restored
+//            setCountDesired(devices.at(ii), getCountLast(devices.at(ii)));
+//
+//            // restart PID controller to prevent windup
+//            restartPid(devices.at(ii));
+//        }
+//    }
+//
+//
+//    // check if triggering device is a limit switch
+//    if ((device >= 0) && (device <= 5)) {
+//        limitSwitchTriggered_[device] = true;
+//
+//        // indicate with green LED
+//        setLEDG(device, true);
+//
+//        // zero out encoder to prevent movement when power is restored
+//        setCountDesired(device, getCountLast(device));
+//
+//        // reset PID controller to prevent windup
+//        restartPid(device);
+//    }
+//    // check if more than one device was triggered
+//    else if (device == -1) {
+//        
+//        Int8Vec devices = whichLimitSwitches();
+//
+//        for (int ii = 0; ii < devices.size(); ii++) {
+//            limitSwitchTriggered_[devices.at(ii)] = true;
+//
+//            // indicate with green LEDs
+//            setLEDG(devices.at(ii), true);
+//
+//            // sync desired with current count to prevent movement when power is restored
+//            setCountDesired(devices.at(ii), getCountLast(devices.at(ii)));
+//
+//            // restart PID controller to prevent windup
+//            restartPid(devices.at(ii));
+//        }
+//    }
+//    // check if it is the E-stop
+//    else if (device == 6) {
+//        // indicate with green LEDs
+//        setLEDG(true);
+//
+//        for (int ii = 0; ii < numModules_; ii++) {
+//            // zero out encoders to prevent movement when power is restored
+//            setCountDesired(ii, getCountLast(ii));
+//
+//            // restart PID controller to prevent windup
+//            restartPid(ii);
+//        }
+//    }
+//}
 
 int8_t MCB::whichLimitSwitch(void)
 {
-    // multiple pins with interrupt conditions = -1
-    // no pins with interrupt conditions = -2
-    // 0-5 -> index of motor whose limit switch was triggered
-    // 6 -> E-stop or hardware brake was triggered
+    /*
+    multiple pins with interrupt conditions = -1
+    no pins with interrupt conditions = -2
+    0-5 -> index of motor whose limit switch was triggered
+    6 -> E-stop or hardware brake was triggered
+
+    In reality, if the E-stop is triggered it will also cause all 
+    other enable pins to trigger as well. So it should always appear
+    as -1 and not 6.    
+    */
+
     int8_t device;
 
     int8_t triggeringPin = pins.i2cPins.whichInterrupt();
