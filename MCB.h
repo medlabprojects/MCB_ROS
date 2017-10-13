@@ -59,7 +59,7 @@ public:
 	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
 	bool disableAllAmps(void); // disables all amps, regardles of numModules_
 	bool enableAllAmps(void);  // NOTE: only enables n = numModules_
-    void processLimitSwitch(void); // call this after limit switch interrupt detected
+    void updateLimitSwitchStates(void); // call this after limit switch interrupt detected
     
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
@@ -89,25 +89,26 @@ public:
 	bool isEverythingPressed(void); // true if down/up/menu are all pressed
 
 private:
+    bool isPinsInit = false; // true after pins.init() has been called
     std::vector<MCBmodule> modules_; // each module controls a single motor
     void addModule(uint8_t position);  // creates and adds module to <vector>modules
     BoolVec moduleConfigured_; // false if no module or module not configured successfully
-    uint8_t numModules_;
+    uint8_t numModules_; // number of modules detected; equal to modules_.size() 
 
 	AD5761R DAC_; // provides access to all DACs
 	Int16Vec DACval_; // stores the current DAC output commands
 	
     Si5351 si5351_; // clock generator for encoder ICs (LS7366R)
 
-    int8_t whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
+    int8_t  whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
     Int8Vec whichLimitSwitches(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
     BoolVec limitSwitchTriggered_ = { false, false, false, false, false, false }; // true when limit switch has been triggered
-	
+    BoolVec limitSwitchState_ = { false, false, false, false, false, false }; // current state of each limit switch
+    BoolVec ampCtrlState_ = { false, false, false, false, false, false }; // current state of ampCtrl pins (aka brake_sw)
+    BoolVec ampEnabled_ = { false, false, false, false, false, false }; // current state of each amp's enable pin
+    bool    eStopState_ = false; // current state of E-stop/hardware brake
+
     BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
-    void addModule(uint8_t position);  // creates and adds module to <vector>modules
-    BoolVec ampEnabled_; // stores enable state of each amp
-    BoolVec LEDG_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // Green LED status (true = on)
-	bool isPinsInit = false; // true after pins.init() has been called
 };
 
 #endif
