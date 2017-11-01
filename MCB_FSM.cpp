@@ -44,8 +44,10 @@ String rosNamespace = "configure_me_over_serial";
 String rosNameEncoderCurrent = "/encoder_current";
 medlab_motor_control_board::McbEncoderCurrent msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 medlab_motor_control_board::McbStatus msgStatus; // stores MCB status message
+medlab_motor_control_board::EnableMotor msgLimitSwitchEvent; // stores limit switch event message
 ros::Publisher pubEncoderCurrent("tempname", &msgEncoderCurrent); // publishes current motor positions
 ros::Publisher pubStatus("tempname", &msgStatus); // publishes MCB status
+ros::Publisher pubLimitSwitchEvent("tempname", &msgLimitSwitchEvent); // published limit switch events
 ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempname", &subEnableMotorCallback); // enables or disables power to a specific motor
 ros::Subscriber<std_msgs::Bool>                          subEnableAllMotors("tempname", &subEnableAllMotorsCallback); // enables or disables all motors
 ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tempname", &subSetGainsCallback); // sets gains for a specific motor
@@ -59,7 +61,7 @@ IntervalTimer timerRos; // ROS timer interrupt
 volatile bool timerRosFlag = false; // indicates timerRos has been called
 float frequencyRos = 500.0; // [Hz]
 uint32_t timeStepRos = uint32_t(1000000.0 / frequencyRos); // [us]
-uint8_t publishInterval = 8; // publish every x times timerRos is called
+uint8_t publishInterval = 4; // publish every x times timerRos is called
 
 // PID Controller
 IntervalTimer timerPid; // PID controller timer interrupt
@@ -129,6 +131,7 @@ MCBstate PowerUP(void)
 
     // initialize limit switch states
     MotorBoard.updateLimitSwitchStates();
+    Serial.println("limit switches initialized");
 
     // ensure amps are disabled
     MotorBoard.disableAllAmps();
@@ -160,6 +163,7 @@ MCBstate RosInit()
     rosNameEncoderCurrent = rosNamespace + rosNameEncoderCurrent;
     //pubEncoderCurrent = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
     pubEncoderCurrent     = ros::Publisher("encoder_current", &msgEncoderCurrent);
+    pubLimitSwitchEvent   = ros::Publisher("limit_switch_event", &msgLimitSwitchEvent);
     pubStatus             = ros::Publisher("status", &msgStatus);
     subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
     subEncoderResetSingle = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderResetSingleCallback);
@@ -193,6 +197,7 @@ MCBstate RosInit()
 	Serial.print("Connecting to ROS Network ... ");
 	nh.advertise(pubEncoderCurrent);
     nh.advertise(pubStatus);
+    nh.advertise(pubLimitSwitchEvent);
 	nh.subscribe(subEncoderCommand);
     nh.subscribe(subEncoderResetSingle);
     nh.subscribe(subEncoderResetAll);
@@ -246,14 +251,13 @@ MCBstate RosIdle()
 
 	// wait for ROS enable command via service call
 	while (!ROSenable && nh.connected() && (modeState == Ros)) {
-        noInterrupts();
-
         if (limitSwitchFlag) {
             MotorBoard.updateLimitSwitchStates();
             MotorBoard.disableAllAmps();
             limitSwitchFlag = false;
         }
       
+        noInterrupts(); // prevent interrupts during SPI communication
 		nh.spinOnce();
         interrupts();
 	}
@@ -298,36 +302,27 @@ MCBstate RosControl()
     { 
     // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
         
-        //MotorBoard.setLEDG(1, HIGH);
-
-        interrupts();
-        // process any interrupt calls here
-        noInterrupts();
-
-        //MotorBoard.setLEDG(1, LOW);
-
         if (limitSwitchFlag) {
-            MotorBoard.updateLimitSwitchStates();
+            uint8_t deviceTriggered = MotorBoard.updateLimitSwitchStates();
 
             // publish limit switch info
-            
+            msgLimitSwitchEvent.motor = deviceTriggered;
+            msgLimitSwitchEvent.enable = MotorBoard.limitSwitchState(deviceTriggered);
+            pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
 
             limitSwitchFlag = false;
         }
 
-        if (timerPidFlag) {
-            //MotorBoard.setLEDG(2, HIGH);
+        noInterrupts(); // prevent interrupts during functions using SPI      
 
+        if (timerPidFlag) {
             // read encoders, compute PID effort, update DACs
             MotorBoard.stepPid();
             
             timerPidFlag = false;
-            //MotorBoard.setLEDG(2, LOW);
         }
 
         if (timerRosFlag) {
-            //MotorBoard.setLEDG(2, HIGH);
-            
             if (rosLoopCount % publishInterval == 0) {
                 // assemble encoder message to send out
                 for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
@@ -339,13 +334,13 @@ MCBstate RosControl()
             }
             rosLoopCount++;
 
-            //MotorBoard.setLEDG(2, LOW);
-
             // process pending ROS communications
             nh.spinOnce();
 
             timerRosFlag = false;
         }
+
+        interrupts(); // process any interrupt calls here
 	}
 
 	// power off motors, disable PID controller, and stop ROS timer
@@ -390,19 +385,18 @@ MCBstate ManualIdle(void)
     rosConfig.printMenu();
     rosConfig.printWaitCommand();
     while ((modeState == Manual) && !configFinished) {
-        // ensure amps remain off
+
         if (limitSwitchFlag) {
-            Serial.println("limitSwitchISR triggered");
             MotorBoard.updateLimitSwitchStates();
-            MotorBoard.disableAllAmps();
+            MotorBoard.disableAllAmps(); // ensure amps remain off
             limitSwitchFlag = false;
         }
 
         // check for serial commands
-        if (!rosConfig.runOnce()) {
-            // user has selected an exit command
-            configFinished = true;
-        }
+        //if (!rosConfig.runOnce()) {
+        //    // user has selected an exit command
+        //    configFinished = true;
+        //}
 
         // check buttons
         if (timeButtonsPressed < holdTime)
@@ -502,19 +496,19 @@ MCBstate ManualControl()
     while (modeState == Manual)
     {
         // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
-        noInterrupts();
+
+        if (limitSwitchFlag) {
+            MotorBoard.updateLimitSwitchStates(); // module triggered indicated by green LED
+            limitSwitchFlag = false;
+        }
+        
+        noInterrupts(); // prevents interruption during critical functions
 
         if (timerPidFlag) {
             // read encoders, compute PID effort, update DACs
             MotorBoard.stepPid();
 
             timerPidFlag = false;
-        }
-
-        if (limitSwitchFlag) {
-            MotorBoard.updateLimitSwitchStates(); // module triggered indicated by green LED
-            limitSwitchFlag = false;
-            Serial.println("limit switch triggered");
         }
 
         // check serial for commands
@@ -540,13 +534,14 @@ MCBstate ManualControl()
         //    }
         //}
 
+
         // run manual control on a timer so a held button produces a constant velocity
         if (timerManualControlFlag) {
             runManualControl();
             timerManualControlFlag = false;
         }
 
-        interrupts();
+        interrupts(); // now safe to process any interrupts
     }
 
     // stop checking buttons
@@ -679,7 +674,7 @@ void subGetStatusCallback(const std_msgs::Empty & msg)
         msgStatus.count_current[ii] = MotorBoard.getCountLast(ii);
         msgStatus.control_effort[ii] = MotorBoard.getEffort(ii);
         msgStatus.motor_enabled[ii] = MotorBoard.isAmpEnabled(ii);
-        msgStatus.limit_switch[ii] = false;
+        msgStatus.limit_switch[ii] = MotorBoard.limitSwitchState(ii);
         FloatVec gains = MotorBoard.getGains(ii);
         msgStatus.p[ii] = gains.at(0);
         msgStatus.i[ii] = gains.at(1);

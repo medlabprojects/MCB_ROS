@@ -59,7 +59,8 @@ public:
 	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
 	bool disableAllAmps(void); // disables all amps, regardles of numModules_
 	bool enableAllAmps(void);  // NOTE: only enables n = numModules_
-    void updateLimitSwitchStates(void); // call this after limit switch interrupt detected
+    uint8_t updateLimitSwitchStates(void); // call this after limit switch interrupt detected
+    bool limitSwitchState(uint8_t position); // returns limitSwitchState_[position]
     
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
