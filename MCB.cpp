@@ -149,7 +149,7 @@ void MCB::addModule(uint8_t position)
 	modules_.push_back(MCBmodule(pins.csEnc[position])); // create new MCBmodule and add to storage vector
     moduleConfigured_.push_back(false);
 	moduleConfigured_.at(position) = modules_.at(position).init(); // initialize modules
-    ampEnabled_.push_back(false);
+    //ampEnabled_.push_back(false);
 }
 
 uint8_t MCB::numModules(void)
@@ -190,10 +190,14 @@ bool MCB::enableAmp(uint8_t position)
         {
             // amp is enabled when ampCtrlState == limitSwitchState
             ampCtrlState_[position] = limitSwitchState_.at(position);
-            digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
 
-            // update amp state
-            ampEnabled_[position] = true;
+            // set ampCtrl pin such that it makes ampEnabled pin HIGH
+            digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
+            ampEnabled_[position] = true; // update amp state
+           
+            // the changing ampEnabled pin triggers the interrupt again
+            // since we are aware of this (we caused it), it is safe to reset
+            pins.i2cPins.resetInterrupts();
         }
 
         success = true;
@@ -217,10 +221,14 @@ bool MCB::disableAmp(uint8_t position)
         {
             // amp is disabled when ampCtrlState != limitSwitchState
             ampCtrlState_[position] = !limitSwitchState_.at(position);
-            digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
 
-            // update amp state
-            ampEnabled_[position] = false;
+            // set ampCtrl pin such that it makes ampEnabled pin LOW
+            digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
+            ampEnabled_[position] = false; // update amp state
+
+            // the changing ampEnabled pin triggers the interrupt again
+            // since we are aware of this (we caused it), it is safe to reset
+            pins.i2cPins.resetInterrupts();
         }
 
         success = true;
@@ -262,7 +270,7 @@ bool MCB::enableAllAmps(void)
     return success; // false if any were unsuccessful
 }
 
-void MCB::updateLimitSwitchStates(void)
+uint8_t MCB::updateLimitSwitchStates(void)
 {
     /*
                 AMP ENABLE TRUTH TABLE
@@ -279,13 +287,24 @@ void MCB::updateLimitSwitchStates(void)
 
     */
 
+    // check which device triggered the interrupt
+    int8_t device = whichLimitSwitch();
+    if (device == -2) { // none detected
+        device = 10; // change due to ROS msg using uint8_t
+    }
+    else if (device == -1) {
+        device = 6; // multiple pins triggered due to e-stop
+    }
 
-    // first check if e-stop is enabled
+    // read current pin values
     uint8_t i2cStates = pins.i2cPins.readGPIO();
+
+    // check if e-stop is enabled
     eStopState_ = bitRead(i2cStates, pins.i2cBrakeHw);
 
     if (!eStopState_)
     {
+
         // ampEnabled_ states can only be inferred if e-stop is not enabled
         ampEnabled_[0] = bitRead(i2cStates, pins.i2cEnableM0);
         ampEnabled_[1] = bitRead(i2cStates, pins.i2cEnableM1);
@@ -316,8 +335,17 @@ void MCB::updateLimitSwitchStates(void)
         setLEDG(aa, limitSwitchState_.at(aa));
     }
 
-    // reset interrupt
-    pins.i2cPins.resetInterrupts(); // NOTE: shouldn't be needed since readGPIO() above should reset it 
+    // ensure interrupt pin has been reset (active low so should be high)
+    while (!digitalReadFast(pins.i2cInt)) {
+        pins.i2cPins.resetInterrupts();
+    }
+
+    return (uint8_t)device;
+}
+
+bool MCB::limitSwitchState(uint8_t position)
+{
+    return limitSwitchState_.at(position);
 }
 
 //void MCB::processLimitSwitch(void)
