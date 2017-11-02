@@ -79,6 +79,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AD5761R.h" />
+    <ClInclude Include="Adafruit_MCP23008.h" />
     <ClInclude Include="LS7366R.h" />
     <ClInclude Include="MCB.h" />
     <ClInclude Include="MCBmodule.h" />
@@ -93,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AD5761R.cpp" />
+    <ClCompile Include="Adafruit_MCP23008.cpp" />
     <ClCompile Include="LS7366R.cpp" />
     <ClCompile Include="MCB.cpp" />
     <ClCompile Include="MCBmodule.cpp" />
