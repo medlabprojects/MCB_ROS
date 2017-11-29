@@ -23,19 +23,19 @@ Changelog-
 #include <ros.h>
 #include <Ethernet.h>
 #include "WiznetHardware.h"
-#include <std_msgs\Bool.h>
-#include <std_msgs\Empty.h>
-#include <std_msgs\UInt8.h>
-#include <medlab_motor_control_board\EnableMotor.h>
-#include <medlab_motor_control_board\McbEncoderCurrent.h>
-#include <medlab_motor_control_board\McbEncoders.h>
-#include <medlab_motor_control_board\McbGains.h>
-#include <medlab_motor_control_board\McbStatus.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/Empty.h>
+#include <std_msgs/UInt8.h>
+#include <medlab_motor_control_board/EnableMotor.h>
+#include <medlab_motor_control_board/McbEncoderCurrent.h>
+#include <medlab_motor_control_board/McbEncoders.h>
+#include <medlab_motor_control_board/McbGains.h>
+#include <medlab_motor_control_board/McbStatus.h>
 
 // Motor Control Board
 void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
 void modeSwitchCallback(void); // ISR for mode switch on motherboard
-void limitSwitchISR(void); // ISR for MCP23008 interrupt
+void ampEnableISR(void); // ISR for MCP23008 interrupt that is triggered whenever an ampEnabled pin changes
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };
