@@ -172,6 +172,11 @@ void MCB::setPolarity(bool polarity)
 
 bool MCB::isAmpEnabled(uint8_t position)
 {
+    // first check if update is needed
+    if (ampEnableFlag_) {
+        updateAmpStates();
+    }
+
     if (position >= numModules_) {
         return 0;
     }
@@ -182,22 +187,35 @@ bool MCB::enableAmp(uint8_t position)
 {
     bool success = false;
 
+    // verify valid input 
+    if (position >= numModules_) {
+        return success;
+    }
+
+    // check if update is needed first
+    if (ampEnableFlag_) {
+        updateAmpStates();
+    }
+
     // ensure module has been configured
     if (isModuleConfigured(position)) 
     {
-        // check that amp is not already enabled
-        if (!isAmpEnabled(position)) 
+        // check that amp is not already enabled and that e-stop is disabled
+        if (!isAmpEnabled(position) && !eStopState_)
         {
+            // prevent sudden movement once powered
+            setCountDesired(position, getCountLast(position)); // sync current/desired position
+            restartPid(position); // restart the PID controller
+
             // amp is enabled when ampCtrlState == limitSwitchState
             ampCtrlState_[position] = limitSwitchState_.at(position);
-
-            // set ampCtrl pin such that it makes ampEnabled pin HIGH
             digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
             ampEnabled_[position] = true; // update amp state
            
             // the changing ampEnabled pin triggers the interrupt again
             // since we are aware of this (we caused it), it is safe to reset
             pins.i2cPins.resetInterrupts();
+            ampEnableFlag_ = false;
         }
 
         success = true;
@@ -211,7 +229,19 @@ bool MCB::enableAmp(uint8_t position)
 
 bool MCB::disableAmp(uint8_t position)
 {
+    // NOTE: if E-stop is triggered, this will set ampCtrl pin based on last known limitSwitchState
+    
     bool success = false;
+
+    // verify valid input 
+    if (position >= numModules_) {
+        return success;
+    }
+
+    // check if update is needed first
+    if (ampEnableFlag_) {
+        updateAmpStates();
+    }
 
     // ensure module has been configured
     if (isModuleConfigured(position))
@@ -219,16 +249,19 @@ bool MCB::disableAmp(uint8_t position)
         // check that amp is not already disabled
         if (isAmpEnabled(position))
         {
+            // prevent sudden movement once powered
+            setCountDesired(position, getCountLast(position)); // sync current/desired position
+            restartPid(position); // restart the PID controller
+
             // amp is disabled when ampCtrlState != limitSwitchState
             ampCtrlState_[position] = !limitSwitchState_.at(position);
-
-            // set ampCtrl pin such that it makes ampEnabled pin LOW
             digitalWriteFast(pins.ampCtrl[position], ampCtrlState_.at(position));
             ampEnabled_[position] = false; // update amp state
 
             // the changing ampEnabled pin triggers the interrupt again
             // since we are aware of this (we caused it), it is safe to reset
             pins.i2cPins.resetInterrupts();
+            ampEnableFlag_ = false;
         }
 
         success = true;
@@ -270,9 +303,12 @@ bool MCB::enableAllAmps(void)
     return success; // false if any were unsuccessful
 }
 
-uint8_t MCB::updateLimitSwitchStates(void)
+uint8_t MCB::updateAmpStates(void)
 {
     /*
+    Returns which limit switch was triggered (0-5) or '6' if the E-stop is enabled. 
+    If ampEnabled has not changed OR was changed by the user (via enable/disable functions) -> '10' is returned.
+
                 AMP ENABLE TRUTH TABLE
     eStopState | limitSwitchState | ampCtrlState |=| ampEnabled
     -----------------------------------------------------------
@@ -285,52 +321,81 @@ uint8_t MCB::updateLimitSwitchStates(void)
         1      |        1         |       0      |=|     0
         1      |        1         |       1      |=|     0
 
+    E-Stop triggered => amps always off
+    limitSwitchState /= ampCtrlState => amps disabled
+    limitSwitchState == ampCtrlState => amps enabled
+
     */
+    
+    int8_t device = 10;
 
-    // check which device triggered the interrupt
-    int8_t device = whichLimitSwitch();
-    if (device == -2) { // none detected
-        device = 10; // change due to ROS msg using uint8_t
-    }
-    else if (device == -1) {
-        device = 6; // multiple pins triggered due to e-stop
-    }
+    //// check if interrupt flag was set
+    //if (ampEnableFlag_) {
+    //    // check which device triggered the interrupt
+    //    device = whichDevice();
+    //    if (device == -2) { // none detected
+    //        device = 10; // change from -2 to 10 due to ROS msg using uint8_t
+    //    }
+    //    else if (device == -1) {
+    //        device = 6; // multiple pins triggered due to e-stop
+    //    }
+    //}
+    
+    // disable flag
+    ampEnableFlag_ = false;
 
-    // read current pin values
+    // store previous eStopState_
+    bool eStopStatePrevious = eStopState_;
+
+    // update ampEnabled_
     uint8_t i2cStates = pins.i2cPins.readGPIO();
-
-    // check if e-stop is enabled
+    ampEnabled_[0] = bitRead(i2cStates, pins.i2cEnableM0);
+    ampEnabled_[1] = bitRead(i2cStates, pins.i2cEnableM1);
+    ampEnabled_[2] = bitRead(i2cStates, pins.i2cEnableM2);
+    ampEnabled_[3] = bitRead(i2cStates, pins.i2cEnableM3);
+    ampEnabled_[4] = bitRead(i2cStates, pins.i2cEnableM4);
+    ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
     eStopState_ = bitRead(i2cStates, pins.i2cBrakeHw);
 
-    if (!eStopState_)
+ 
+    if (!eStopState_) // e-stop not triggered; limit switch states can only be inferred when e-stop is disabled
     {
+        bool limitSwitchStateTemp;
 
-        // ampEnabled_ states can only be inferred if e-stop is not enabled
-        ampEnabled_[0] = bitRead(i2cStates, pins.i2cEnableM0);
-        ampEnabled_[1] = bitRead(i2cStates, pins.i2cEnableM1);
-        ampEnabled_[2] = bitRead(i2cStates, pins.i2cEnableM2);
-        ampEnabled_[3] = bitRead(i2cStates, pins.i2cEnableM3);
-        ampEnabled_[4] = bitRead(i2cStates, pins.i2cEnableM4);
-        ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
-
-        // infer states of limit switches
+        // update limitSwitchState_
         for (uint8_t aa = 0; aa < ampEnabled_.size(); aa++) {
-            if (ampEnabled_.at(aa) == ampCtrlState_.at(aa)) {
-                // amp is only enabled when ampCtrlState = limitSwitchState
-                limitSwitchState_[aa] = ampCtrlState_.at(aa);
+            if (ampEnabled_.at(aa)) {
+                // amp is only enabled when ampCtrlState == limitSwitchState
+                limitSwitchStateTemp = ampCtrlState_.at(aa);
             }
             else {
-                limitSwitchState_[aa] = !ampCtrlState_.at(aa);
+                limitSwitchStateTemp = !ampCtrlState_.at(aa);
             }
+
+            // compare against previous limitSwitchState
+            if (limitSwitchState_[aa] != limitSwitchStateTemp) {
+                limitSwitchTriggeredFlag_ = true; // set flag
+                limitSwitchTriggered_[aa] = true;
+                limitSwitchState_[aa] = limitSwitchStateTemp; // update
+                device = aa; // we assume only 1 limit switch gets triggered between each updateAmpStates() call
+            }
+            else {
+                // ampEnabled must have changed due to ampCtrl, not limitSwitch
+            }
+        }
+
+        // to be safe, disable all amps when first switching off e-stop
+        if (eStopStatePrevious == true) {
+            device = 6;
+            disableAllAmps(); // NOTE: this can recurvisely call updateAmpStates(), use caution to prevent infinite loop!
         }
     }
     else // e-stop triggered
     {
-        // for safety, ensure amps will be disabled after e-stop is disabled
-        disableAllAmps();
+        device = 6;
     }
 
-    // update green LEDs to indicate limit switch state
+    // update green LEDs to indicate limit switch state (on = switch closed)
     for (uint8_t aa = 0; aa < limitSwitchState_.size(); aa++) {
         setLEDG(aa, limitSwitchState_.at(aa));
     }
@@ -345,7 +410,41 @@ uint8_t MCB::updateLimitSwitchStates(void)
 
 bool MCB::limitSwitchState(uint8_t position)
 {
+    // first check if update is needed
+    if (ampEnableFlag_) {
+        updateAmpStates();
+    }
+
     return limitSwitchState_.at(position);
+}
+
+bool MCB::eStopState(void)
+{
+    return eStopState_;
+}
+
+bool MCB::limitSwitchTriggeredFlag(void)
+{
+    return limitSwitchTriggeredFlag_;
+}
+
+void MCB::resetLimitSwitchTriggered(void)
+{
+    limitSwitchTriggeredFlag_ = false;
+
+    for (uint8_t ii = 0; ii < limitSwitchTriggered_.size(); ii++) {
+        limitSwitchTriggered_[ii] = false;
+    }
+}
+
+bool MCB::ampEnableFlag(void)
+{
+    return ampEnableFlag_;
+}
+
+void MCB::setAmpEnableFlag(void)
+{
+    ampEnableFlag_ = true;
 }
 
 //void MCB::processLimitSwitch(void)
@@ -428,7 +527,7 @@ bool MCB::limitSwitchState(uint8_t position)
 //    }
 //}
 
-int8_t MCB::whichLimitSwitch(void)
+int8_t MCB::whichDevice(void)
 {
     /*
     multiple pins with interrupt conditions = -1
@@ -489,7 +588,7 @@ int8_t MCB::whichLimitSwitch(void)
     return device;
 }
 
-Int8Vec MCB::whichLimitSwitches(void)
+Int8Vec MCB::whichDevices(void)
 {
     Int8Vec devices;
 

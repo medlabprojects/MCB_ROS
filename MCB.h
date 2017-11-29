@@ -54,14 +54,21 @@ public:
     
     void setPolarity(uint8_t position, bool polarity); // used to make sure positive current -> positive encoder counts
     void setPolarity(bool polarity); // sets all modules
+
     bool isAmpEnabled(uint8_t position); // true if amp output is enabled
     bool enableAmp(uint8_t position);  // sets inhibit pin for motor amp
 	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
 	bool disableAllAmps(void); // disables all amps, regardles of numModules_
 	bool enableAllAmps(void);  // NOTE: only enables n = numModules_
-    uint8_t updateLimitSwitchStates(void); // call this after limit switch interrupt detected
+
+    uint8_t updateAmpStates(void); // call this after ampEnableFlag_ has been set true; returns device # that caused trigger
     bool limitSwitchState(uint8_t position); // returns limitSwitchState_[position]
-    
+    bool eStopState(void); // returns eStopState_
+    bool limitSwitchTriggeredFlag(void); // returns limitSwitchTriggeredFlag_
+    void resetLimitSwitchTriggered(void); // resets limitSwitchTriggeredFlag_ and limitSwitchTriggered to false
+    bool ampEnableFlag(void);
+    void setAmpEnableFlag(void); // ONLY to be used by ampEnableISR() to set ampEnableFlag_ true; only disabled by calling updateAmpStates()
+
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
     float getEffort(uint8_t position);   // returns computed effort of PID controller (prior to maxAmps saturation check)
@@ -101,8 +108,10 @@ private:
 	
     Si5351 si5351_; // clock generator for encoder ICs (LS7366R)
 
-    int8_t  whichLimitSwitch(void);  // returns the index (0-5) of the motor whose limit switch was triggered; E-stop/hardware brake = 6
-    Int8Vec whichLimitSwitches(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
+    volatile bool ampEnableFlag_ = true; // this flag is set by ampEnabledISR whenever ampEnabled_ state changes
+    bool limitSwitchTriggeredFlag_ = false; // gets set true whenever a limitSwitchState changes
+    int8_t  whichDevice(void);  // returns the index (0-5) of the motor that caused the interrupt; E-stop/hardware brake = 6
+    Int8Vec whichDevices(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
     BoolVec limitSwitchTriggered_ = { false, false, false, false, false, false }; // true when limit switch has been triggered
     BoolVec limitSwitchState_ = { false, false, false, false, false, false }; // current state of each limit switch
     BoolVec ampCtrlState_ = { false, false, false, false, false, false }; // current state of ampCtrl pins (aka brake_sw)
