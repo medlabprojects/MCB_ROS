@@ -127,6 +127,8 @@ MCBstate PowerUP(void)
     Serial.print(MotorBoard.numModules());
     Serial.println(" motor modules detected and configured");
 
+    delay(10);
+
     // initialize limit switch states
     MotorBoard.updateAmpStates();
     Serial.println("limit switches initialized");
@@ -200,6 +202,7 @@ MCBstate RosInit()
 	nh.advertise(pubEncoderCurrent);
     nh.advertise(pubStatus);
     nh.advertise(pubAmpEnableEvent);
+    nh.advertise(pubLimitSwitchEvent);
 	nh.subscribe(subEncoderCommand);
     nh.subscribe(subEncoderResetSingle);
     nh.subscribe(subEncoderResetAll);
@@ -444,7 +447,9 @@ MCBstate ManualIdle(void)
     while ((modeState == Manual) && !configFinished) {
 
         if (MotorBoard.ampEnableFlag()) {
-            MotorBoard.updateAmpStates();
+            uint8_t device = MotorBoard.updateAmpStates();
+            Serial.print("device = "); 
+            Serial.println(device);
             MotorBoard.disableAllAmps(); // ensure amps remain off
         }
 
@@ -565,11 +570,10 @@ MCBstate ManualControl()
             }
             else if (MotorBoard.limitSwitchTriggeredFlag()) {
                 // limit switch was triggered
-
-
                 Serial.print("\nLimit Switch #");
                 Serial.print(device);
                 Serial.println(" Triggered");
+                MotorBoard.disableAmp(device);
             }
         }
         
@@ -780,7 +784,7 @@ void runManualControl(void)
 	MotorBoard.readButtons();
 
 	if (MotorBoard.isMenuPressed()) {
-		//MotorBoard.disableAllAmps(); // stop motors during user selection
+		MotorBoard.disableAllAmps(); // stop motors during user selection
 		for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 			MotorBoard.setLEDG(ii, false);
 		}
@@ -802,16 +806,13 @@ void runManualControl(void)
 				MotorBoard.setLEDG(currentMotorSelected, true);
 			}
 
-            //countDesired[currentMotorSelected] = MotorBoard.getCountLast(currentMotorSelected); // ensure we drive relative to current position
-            //MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
-
             MotorBoard.setCountDesired(currentMotorSelected, MotorBoard.getCountLast(currentMotorSelected)); // ensure we drive relative to current position
 
 			delayMicroseconds(400000); // wait for human's slow reaction time
 			MotorBoard.readButtons();
 		}
 		
-		//MotorBoard.enableAllAmps();
+		MotorBoard.enableAmp(currentMotorSelected);
 	}
 	else if (MotorBoard.isUpPressed()) {
 		//countDesired[currentMotorSelected] += countStepManualControl;

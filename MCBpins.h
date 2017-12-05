@@ -83,7 +83,7 @@ public:
 			digitalWriteFast(led[aa], LOW);
 			// software brakes (HIGH = amps disabled)
 			pinMode(ampCtrl[aa], OUTPUT);
-			digitalWriteFast(ampCtrl[aa], HIGH);
+			digitalWriteFast(ampCtrl[aa], HIGH); // should match MCB::ampCtrlState_[aa]
 		}
 
 		// end reset pulse for WIZ820io

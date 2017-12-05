@@ -346,6 +346,8 @@ uint8_t MCB::updateAmpStates(void)
 
     // store previous eStopState_
     bool eStopStatePrevious = eStopState_;
+    
+    //delayMicroseconds(10);
 
     // update ampEnabled_
     uint8_t i2cStates = pins.i2cPins.readGPIO();
@@ -357,7 +359,9 @@ uint8_t MCB::updateAmpStates(void)
     ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
     eStopState_ = bitRead(i2cStates, pins.i2cBrakeHw);
 
+
  
+    
     if (!eStopState_) // e-stop not triggered; limit switch states can only be inferred when e-stop is disabled
     {
         bool limitSwitchStateTemp;
@@ -404,7 +408,6 @@ uint8_t MCB::updateAmpStates(void)
     while (!digitalReadFast(pins.i2cInt)) {
         pins.i2cPins.resetInterrupts();
     }
-
     return (uint8_t)device;
 }
 
