@@ -114,7 +114,7 @@ private:
     Int8Vec whichDevices(void); // use if there are multiple pins interrupted; i.e. when whichLimitSwitch() = -1
     BoolVec limitSwitchTriggered_ = { false, false, false, false, false, false }; // true when limit switch has been triggered
     BoolVec limitSwitchState_ = { false, false, false, false, false, false }; // current state of each limit switch
-    BoolVec ampCtrlState_ = { false, false, false, false, false, false }; // current state of ampCtrl pins (aka brake_sw)
+    BoolVec ampCtrlState_ = { true, true, true, true, true, true }; // current state of ampCtrl pins (aka brake_sw)
     BoolVec ampEnabled_ = { false, false, false, false, false, false }; // current state of each amp's enable pin
     bool    eStopState_ = false; // current state of E-stop/hardware brake
 
