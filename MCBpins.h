@@ -53,7 +53,8 @@ public:
         // setup MCP23008
         i2cPins.begin();
         i2cPins.setInterruptMode(Adafruit_MCP23008::ActiveLow);
-        i2cPins.pinMode(i2cGpio, INPUT);
+        i2cPins.digitalWrite(i2cEnableGlobal, HIGH); // HIGH = INHIBIT
+        i2cPins.pinMode(i2cEnableGlobal, OUTPUT);
         i2cPins.pinMode(i2cBrakeHw, INPUT);
         i2cPins.attachInterrupt(i2cBrakeHw, CHANGE);
         i2cPins.pinMode(i2cEnableM0, INPUT);
@@ -99,7 +100,7 @@ public:
     const uint8_t i2cEnableM2 = 4; // i2cPin: state of enable pin for motor 2 amp
     const uint8_t i2cEnableM1 = 5; // i2cPin: state of enable pin for motor 1 amp
     const uint8_t i2cEnableM0 = 6; // i2cPin: state of enable pin for motor 0 amp
-    const uint8_t i2cGpio = 7;     // i2cPin: extra GPIO with no function yet
+    const uint8_t i2cEnableGlobal = 7; // i2cPin: global enable control for all amps
     const uint8_t i2cInt = 22; // interrupt pin of MCP23008; signals when the enable pin of an amp changes
 
     const uint8_t maxNumBoards = 6; // number of daughterboard sockets

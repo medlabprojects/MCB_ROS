@@ -229,7 +229,7 @@ bool MCB::enableAmp(uint8_t position)
 
 bool MCB::disableAmp(uint8_t position)
 {
-    // NOTE: if E-stop is triggered, this will set ampCtrl pin based on last known limitSwitchState
+    // NOTE: if E-stop is currently engaged, this will set ampCtrl pin based on last known limitSwitchState
     
     bool success = false;
 
@@ -252,6 +252,7 @@ bool MCB::disableAmp(uint8_t position)
             // prevent sudden movement once powered
             setCountDesired(position, getCountLast(position)); // sync current/desired position
             restartPid(position); // restart the PID controller
+            DACval_.at(position) = modules_.at(position).effortToDacCommand(0.0); // set DAC to command 0 amps
 
             // amp is disabled when ampCtrlState != limitSwitchState
             ampCtrlState_[position] = !limitSwitchState_.at(position);
@@ -292,6 +293,9 @@ bool MCB::enableAllAmps(void)
 {
     bool success = true;
 
+    // set globalEnable
+    globalEnable(true);
+
 	// enable all motor amp outputs
 	for (uint8_t aa = 0; aa < numModules_; aa++)
 	{
@@ -301,6 +305,18 @@ bool MCB::enableAllAmps(void)
 	}
 
     return success; // false if any were unsuccessful
+}
+
+bool MCB::globalEnable(bool enable)
+{
+    bool result = true;
+
+    // setting output LOW => Enabled
+    // setting output HIGH => Disabled
+    // Thus: output = !enable
+    pins.i2cPins.digitalWrite(pins.i2cEnableGlobal, !enable);
+
+    return result;
 }
 
 uint8_t MCB::updateAmpStates(void)

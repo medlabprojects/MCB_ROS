@@ -252,48 +252,17 @@ MCBstate RosIdle()
 {
 	stateCurrent = stateRosIdle;
 
+    Serial.println("\n*************************");
 	Serial.println("\nEntering ROS Idle state");
-	Serial.println("waiting for enable signal via enable_controller");
+    Serial.println("*************************");
+    Serial.println("\nwaiting for enable signal via enable_controller");
 
     // ensure amps are off
     MotorBoard.disableAllAmps();
+    MotorBoard.globalEnable(false);
 
 	// wait for ROS enable command via service call
 	while (!ROSenable && nh.connected() && (modeState == Ros)) {
-        if (MotorBoard.ampEnableFlag()) {
-            // update current states of limit switches and ampEnable pins
-            uint8_t deviceTriggered = MotorBoard.updateAmpStates();
-
-            noInterrupts(); // prevent interrupts during functions using SPI
-
-                            // publish amp enable event
-            if (deviceTriggered < 6) {
-                msgAmpEnableEvent.motor = deviceTriggered;
-                msgAmpEnableEvent.enable = MotorBoard.isAmpEnabled(deviceTriggered);
-                pubAmpEnableEvent.publish(&msgAmpEnableEvent);
-            }
-            else if (deviceTriggered == 6) { // e-stop
-                msgAmpEnableEvent.motor = deviceTriggered;
-                msgAmpEnableEvent.enable = MotorBoard.eStopState();
-                pubAmpEnableEvent.publish(&msgAmpEnableEvent);
-            }
-
-            // publish limit switch event
-            if (MotorBoard.limitSwitchTriggeredFlag()) {
-                msgAmpEnableEvent.motor = deviceTriggered;
-                msgAmpEnableEvent.enable = MotorBoard.limitSwitchState(deviceTriggered);
-                pubLimitSwitchEvent.publish(&msgAmpEnableEvent);
-            }
-
-            // can reset now that we've processed events
-            MotorBoard.resetLimitSwitchTriggered();
-
-            // ensure amps remain off
-            MotorBoard.disableAllAmps();
-
-            interrupts();
-        }
-      
         noInterrupts(); // prevent interrupts during SPI communication
 		nh.spinOnce();
         interrupts();
@@ -319,12 +288,12 @@ MCBstate RosControl()
 {
 	stateCurrent = stateRosControl;
 
-	Serial.println("\nEntering ROS Control state");
+    Serial.println("\n**************************");
+    Serial.println("Entering ROS Control state");
+    Serial.println("**************************");
 
 	// set desired motor position to current position (prevents unexpected movement)
-	for (int ii = 0; ii < MotorBoard.numModules(); ii++)
-	{
-		//countDesired[ii] = MotorBoard.getCountLast(ii);
+	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
 	}
 
@@ -333,6 +302,9 @@ MCBstate RosControl()
 
 	// start ROS update timer
 	timerRos.begin(timerRosCallback, timeStepRos);
+
+    // set global enable
+    MotorBoard.globalEnable(true);
 
     noInterrupts();
     uint32_t rosLoopCount = 0;
@@ -345,8 +317,6 @@ MCBstate RosControl()
         if (MotorBoard.ampEnableFlag()) {
             // update current states of limit switches and ampEnable pins
             uint8_t deviceTriggered = MotorBoard.updateAmpStates();
-
-            noInterrupts(); // prevent interrupts during functions using SPI
 
             // publish amp enable event
             if (deviceTriggered < 6) {
@@ -369,8 +339,6 @@ MCBstate RosControl()
             
             // can reset now that we've processed events
             MotorBoard.resetLimitSwitchTriggered();
-
-            interrupts();
         }
 
         noInterrupts(); // prevent interrupts during functions using SPI      
@@ -400,7 +368,7 @@ MCBstate RosControl()
             timerRosFlag = false;
         }
 
-        interrupts(); // process any interrupt calls here
+        interrupts(); // process any interrupts here
 	}
 
 	// power off motors, disable PID controller, and stop ROS timer
@@ -428,10 +396,13 @@ MCBstate ManualIdle(void)
 {
     stateCurrent = stateManualIdle;
 
-    Serial.println("\nEntering Manual Idle State");
+    Serial.println("\n**************************");
+    Serial.println("Entering Manual Idle State");
+    Serial.println("**************************");
 
     // ensure amps are off and controller is not running
     MotorBoard.disableAllAmps();
+    MotorBoard.globalEnable(false);
     timerPid.end();
 
     uint32_t holdTime = 2000; // [ms] how long buttons must be held before function returns
@@ -445,14 +416,6 @@ MCBstate ManualIdle(void)
     rosConfig.printMenu();
     rosConfig.printWaitCommand();
     while ((modeState == Manual) && !configFinished) {
-
-        if (MotorBoard.ampEnableFlag()) {
-            uint8_t device = MotorBoard.updateAmpStates();
-            Serial.print("device = "); 
-            Serial.println(device);
-            MotorBoard.disableAllAmps(); // ensure amps remain off
-        }
-
         // check for serial commands
         //if (!rosConfig.runOnce()) {
         //    // user has selected an exit command
@@ -501,12 +464,13 @@ MCBstate ManualIdle(void)
             }
             else {
                 timeButtonsPressed = 0;
-                MotorBoard.setLEDG(false);
+                MotorBoard.setLEDG(LOW);
             }
         }
         else {
             // user override -> use default gains and current limits
             configFinished = true;
+            delay(1000);
         }
     }
 
@@ -514,7 +478,6 @@ MCBstate ManualIdle(void)
     Serial.print("Initializing Motors ... ");
     for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
         MotorBoard.setGains(ii, kp, ki, kd);
-        //MotorBoard.setCountDesired(ii, countDesired[ii]);
     }
     Serial.println("done");
 
@@ -535,26 +498,31 @@ MCBstate ManualControl()
 {
     stateCurrent = stateManualControl;
 
-    Serial.println("\nEntering Manual Control State");
+    Serial.println("\n*****************************");
+    Serial.println("Entering Manual Control State");
+    Serial.println("*****************************");
 
     // set desired motor position to current position (prevents unexpected movement)
-    for (int ii = 0; ii < MotorBoard.numModules(); ii++)
-    {
-        //countDesired[ii] = MotorBoard.getCountLast(ii);
+    for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
         MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
     }
-
-    // enable motor amps
-    MotorBoard.enableAllAmps();
 
     // start PID controllers
     timerPid.begin(timerPidCallback, timeStepPid);
 
-    // start manual control
+    // start manual control timer
     timerManualControl.begin(timerManualControlCallback, timeStepManualControl);
 
     // flash led of currently selected motor
     timerMotorSelectLed.begin(motorSelectLedCallback, 350000);
+
+    // set global enable for amps
+    MotorBoard.globalEnable(true);
+
+    // power on first motor
+    MotorBoard.enableAmp(currentMotorSelected);
+
+    MotorBoard.setLEDG(LOW);
 
     // keep running until mode switch changed to Ros OR serial command detected
     while (modeState == Manual)
@@ -565,7 +533,14 @@ MCBstate ManualControl()
             uint8_t device = MotorBoard.updateAmpStates(); // module triggered indicated by green LED
 
             if (device == 6) {
-                Serial.println("\nE-Stop Triggered");
+                Serial.println("\nE-Stop Engaged! \nExiting Manual Control State");
+
+                // stop timers and disable amps
+                timerManualControl.end();
+                timerMotorSelectLed.end();
+                timerPid.end();
+                MotorBoard.disableAllAmps();
+
                 return stateManualIdle; // leave control state
             }
             else if (MotorBoard.limitSwitchTriggeredFlag()) {
@@ -573,7 +548,12 @@ MCBstate ManualControl()
                 Serial.print("\nLimit Switch #");
                 Serial.print(device);
                 Serial.println(" Triggered");
+
+                // disable this motor
                 MotorBoard.disableAmp(device);
+
+                // reset limit switch flag
+                MotorBoard.resetLimitSwitchTriggered();
             }
         }
         
@@ -812,16 +792,12 @@ void runManualControl(void)
 			MotorBoard.readButtons();
 		}
 		
-		MotorBoard.enableAmp(currentMotorSelected);
+        MotorBoard.enableAmp(currentMotorSelected);
 	}
 	else if (MotorBoard.isUpPressed()) {
-		//countDesired[currentMotorSelected] += countStepManualControl;
-        //MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
         MotorBoard.setCountDesired(currentMotorSelected, MotorBoard.getCountDesired(currentMotorSelected) + countStepManualControl);
     }
 	else if (MotorBoard.isDownPressed()) {
-		//countDesired[currentMotorSelected] -= countStepManualControl;
-		//MotorBoard.setCountDesired(currentMotorSelected, countDesired[currentMotorSelected]);
         MotorBoard.setCountDesired(currentMotorSelected, MotorBoard.getCountDesired(currentMotorSelected) - countStepManualControl);
 	}
 }

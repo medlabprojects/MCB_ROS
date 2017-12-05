@@ -342,7 +342,7 @@ public:
     }
 
     void printWaitCommand(void) {
-        Serial.println(F("\nWaiting for command..."));
+        Serial.println(F("Waiting for command..."));
     }
 
 private:

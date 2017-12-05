@@ -8,53 +8,6 @@
     <VCCodeModel>
       <VCCodeMacros />
     </VCCodeModel>
-    <BreakPoints>
-      <BreakPoint Index="1" Name="MCB.cpp, line 363" Id="ce21412a-699e-45e0-8d7f-eb4d46987b52" Enabled="0" Message="{eStopState_}" MessageTextType="2" PreProcessedMessage="{0}" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb.cpp" FileLine="363" FileColumn="1" FunctionName="updateAmpStates(void)" FunctionLineOffset="56" FunctionColumnOffset="1" HitCountTarget="1" HitCountType="1" Language="C++" LocationType="3" Tag="&lt;vmbp Id='ce21412a-699e-45e0-8d7f-eb4d46987b52'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="0">
-        <Source>356	    ampEnabled_[2] = bitRead(i2cStates, pins.i2cEnableM2);
-357	    ampEnabled_[3] = bitRead(i2cStates, pins.i2cEnableM3);
-358	    ampEnabled_[4] = bitRead(i2cStates, pins.i2cEnableM4);
-359	    ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
-360	    eStopState_ = bitRead(i2cStates, pins.i2cBrakeHw);
-361	
-362	
---&gt;363	 
-364	    
-365	    if (!eStopState_) // e-stop not triggered; limit switch states can only be inferred when e-stop is disabled
-366	    {
-367	        bool limitSwitchStateTemp;
-368	
-369	        // update limitSwitchState_
-370	        for (uint8_t aa = 0; aa &lt; ampEnabled_.size(); aa++) {
-371	            if (ampEnabled_.at(aa)) {
-372	                // amp is only enabled when ampCtrlState == limitSwitchState
-</Source>
-        <MessageVariables>
-          <MessageVariable Name="eStopState_" Index="1" />
-        </MessageVariables>
-      </BreakPoint>
-      <BreakPoint Index="2" Name="MCB.cpp, line 364" Id="9a10ed4f-a44d-4e60-b25e-7cdfa888d786" Enabled="0" Message="{ampEnabled_[0]}" MessageTextType="2" PreProcessedMessage="{0}" Condition="" ConditionType="1" CurrentHits="0" File="d:\trevor\my documents\arduino\mcb_ros\mcb.cpp" FileLine="364" FileColumn="1" FunctionName="updateAmpStates(void)" FunctionLineOffset="58" FunctionColumnOffset="1" HitCountTarget="1" HitCountType="1" Language="C++" LocationType="3" Tag="&lt;vmbp Id='9a10ed4f-a44d-4e60-b25e-7cdfa888d786'/&gt;" Type="1" ToString="System.__ComObject" BreakWhenHit="0">
-        <Source>357	    ampEnabled_[3] = bitRead(i2cStates, pins.i2cEnableM3);
-358	    ampEnabled_[4] = bitRead(i2cStates, pins.i2cEnableM4);
-359	    ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
-360	    eStopState_ = bitRead(i2cStates, pins.i2cBrakeHw);
-361	
-362	
-363	 
---&gt;364	    
-365	    if (!eStopState_) // e-stop not triggered; limit switch states can only be inferred when e-stop is disabled
-366	    {
-367	        bool limitSwitchStateTemp;
-368	
-369	        // update limitSwitchState_
-370	        for (uint8_t aa = 0; aa &lt; ampEnabled_.size(); aa++) {
-371	            if (ampEnabled_.at(aa)) {
-372	                // amp is only enabled when ampCtrlState == limitSwitchState
-373	                limitSwitchStateTemp = ampCtrlState_.at(aa);
-</Source>
-        <MessageVariables>
-          <MessageVariable Name="ampEnabled_[0]" Index="1" />
-        </MessageVariables>
-      </BreakPoint>
-    </BreakPoints>
+    <BreakPoints />
   </Program>
 </VisualMicro>
