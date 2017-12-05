@@ -60,6 +60,7 @@ public:
 	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
 	bool disableAllAmps(void); // disables all amps, regardles of numModules_
 	bool enableAllAmps(void);  // NOTE: only enables n = numModules_
+    bool globalEnable(bool enable); // global control for all amps; TRUE = ENABLE
 
     uint8_t updateAmpStates(void); // call this after ampEnableFlag_ has been set true; returns device # that caused trigger
     bool limitSwitchState(uint8_t position); // returns limitSwitchState_[position]
