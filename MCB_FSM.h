@@ -32,6 +32,8 @@ Changelog-
 #include <medlab_motor_control_board/McbGains.h>
 #include <medlab_motor_control_board/McbStatus.h>
 
+#define MCB_VERSION 0.9
+
 // Motor Control Board
 void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
 void modeSwitchCallback(void); // ISR for mode switch on motherboard
@@ -61,12 +63,6 @@ void subEncoderResetSingleCallback(const std_msgs::UInt8& msg); // resets a spec
 void subEncoderResetAllCallback(const std_msgs::Empty& msg); // resets all encoders to zero
 void subGetStatusCallback(const std_msgs::Empty& msg);
 void subSetGainsCallback(const medlab_motor_control_board::McbGains& msg);
-
-
-//void srvEnableCallback(const std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); // callback for service srvEnableMCB
-//void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest &req, beginner_tutorials::srvGetGainsResponse &res); // callback for service srvGetGains
-//void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest &req, beginner_tutorials::srvSetGainsResponse &res); // callback for service srvSetGains
-//void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest &req, beginner_tutorials::srvStatusMCBResponse &res); // callback for service srvStatusMCB
 
 // Manual Control
 void timerManualControlCallback(void);

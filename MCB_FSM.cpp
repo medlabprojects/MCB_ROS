@@ -41,11 +41,10 @@ String rosNamespace = "configure_me_over_serial";
 String rosNameEncoderCurrent = "/encoder_current";
 medlab_motor_control_board::McbEncoderCurrent msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 medlab_motor_control_board::McbStatus msgStatus; // stores MCB status message
-medlab_motor_control_board::EnableMotor msgAmpEnableEvent; // stores message that is sent whenever an ampEnabled pin changes
+medlab_motor_control_board::EnableMotor msgLimitSwitchEvent; // stores message that is sent whenever a limit switch is triggered
 ros::Publisher pubEncoderCurrent("tempname", &msgEncoderCurrent); // publishes current motor positions
 ros::Publisher pubStatus("tempname", &msgStatus); // publishes MCB status
-ros::Publisher pubAmpEnableEvent("tempname", &msgAmpEnableEvent);   // publishes each time AmpEnable changes
-ros::Publisher pubLimitSwitchEvent("tempname", &msgAmpEnableEvent); // publishes each time a limit switch is triggered
+ros::Publisher pubLimitSwitchEvent("tempname", &msgLimitSwitchEvent); // publishes each time a limit switch is triggered
 ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempname", &subEnableMotorCallback); // enables or disables power to a specific motor
 ros::Subscriber<std_msgs::Bool>                          subEnableAllMotors("tempname", &subEnableAllMotorsCallback); // enables or disables all motors
 ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tempname", &subSetGainsCallback); // sets gains for a specific motor
@@ -113,7 +112,12 @@ MCBstate PowerUP(void)
     Serial.setTimeout(100);
 
 	// initialize motor control board
-	Serial.println("\nInitializing Motor Control Board ... ");
+    Serial.println("\n********************************");
+    Serial.println("Initializing Motor Control Board");
+    Serial.print("Firmware Version ");
+    Serial.println(MCB_VERSION);
+    Serial.println("********************************\n");
+	
     if (MotorBoard.init() == -1) {
         Serial.println("\nERROR: INCORRECT MODULE CONFIGURATION");
         Serial.println("\nPower off and ensure there are no gaps between modules");
@@ -131,7 +135,6 @@ MCBstate PowerUP(void)
 
     // initialize limit switch states
     MotorBoard.updateAmpStates();
-    Serial.println("limit switches initialized");
 
     // ensure amps are disabled
     MotorBoard.disableAllAmps();
@@ -160,14 +163,17 @@ MCBstate RosInit()
 {
 	stateCurrent = stateRosInit;
 
+    Serial.println("\n\n******************");
+    Serial.println("ROS Initialization");
+    Serial.println("******************");
+
     ROSenable = false;
 
     // set up topics
     rosNameEncoderCurrent = rosNamespace + rosNameEncoderCurrent;
     //pubEncoderCurrent = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
     pubEncoderCurrent     = ros::Publisher("encoder_current", &msgEncoderCurrent);
-    pubAmpEnableEvent     = ros::Publisher("amp_enable_event", &msgAmpEnableEvent);
-    pubLimitSwitchEvent   = ros::Publisher("limit_switch_event", &msgAmpEnableEvent);
+    pubLimitSwitchEvent   = ros::Publisher("limit_switch_event", &msgLimitSwitchEvent);
     pubStatus             = ros::Publisher("status", &msgStatus);
     subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
     subEncoderResetSingle = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderResetSingleCallback);
@@ -180,7 +186,7 @@ MCBstate RosInit()
 
 
 	// set up Wiznet and connect to ROS server
-	Serial.print("Setting up ethernet connection ... ");
+	Serial.print("Configuring Ethernet Connection ... ");
 	nh.initNode();
 
 	// repeatedly attempt to setup the hardware, loop on fail, stop on success
@@ -201,7 +207,6 @@ MCBstate RosInit()
 	Serial.print("Connecting to ROS Network ... ");
 	nh.advertise(pubEncoderCurrent);
     nh.advertise(pubStatus);
-    nh.advertise(pubAmpEnableEvent);
     nh.advertise(pubLimitSwitchEvent);
 	nh.subscribe(subEncoderCommand);
     nh.subscribe(subEncoderResetSingle);
@@ -230,7 +235,6 @@ MCBstate RosInit()
 	Serial.print("Initializing Motors ... ");
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
-		//MotorBoard.setCountDesired(ii, countDesired[ii]);
         MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
         MotorBoard.setPolarity(ii, 1);
 	}
@@ -252,7 +256,7 @@ MCBstate RosIdle()
 {
 	stateCurrent = stateRosIdle;
 
-    Serial.println("\n*************************");
+    Serial.println("\n\n*************************");
 	Serial.println("\nEntering ROS Idle state");
     Serial.println("*************************");
     Serial.println("\nwaiting for enable signal via enable_controller");
@@ -288,7 +292,7 @@ MCBstate RosControl()
 {
 	stateCurrent = stateRosControl;
 
-    Serial.println("\n**************************");
+    Serial.println("\n\n**************************");
     Serial.println("Entering ROS Control state");
     Serial.println("**************************");
 
@@ -306,7 +310,8 @@ MCBstate RosControl()
     // set global enable
     MotorBoard.globalEnable(true);
 
-    noInterrupts();
+    //noInterrupts();
+
     uint32_t rosLoopCount = 0;
 
 	// loop until disconnected OR ROS 'disable' command OR mode switched to 'Manual'
@@ -318,25 +323,18 @@ MCBstate RosControl()
             // update current states of limit switches and ampEnable pins
             uint8_t deviceTriggered = MotorBoard.updateAmpStates();
 
-            // publish amp enable event
-            if (deviceTriggered < 6) {
-                msgAmpEnableEvent.motor = deviceTriggered;
-                msgAmpEnableEvent.enable = MotorBoard.isAmpEnabled(deviceTriggered);
-                pubAmpEnableEvent.publish(&msgAmpEnableEvent);
-            }
-            else if (deviceTriggered == 6) { // e-stop
-                msgAmpEnableEvent.motor = deviceTriggered;
-                msgAmpEnableEvent.enable = MotorBoard.eStopState();
-                pubAmpEnableEvent.publish(&msgAmpEnableEvent);
-            }
-
             // publish limit switch event
             if (MotorBoard.limitSwitchTriggeredFlag()) {
-                msgAmpEnableEvent.motor = deviceTriggered;
-                msgAmpEnableEvent.enable = MotorBoard.limitSwitchState(deviceTriggered);
-                pubLimitSwitchEvent.publish(&msgAmpEnableEvent);
+                msgLimitSwitchEvent.motor = deviceTriggered;
+                msgLimitSwitchEvent.enable = MotorBoard.limitSwitchState(deviceTriggered);
+                pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
             }
-            
+            else if (deviceTriggered == 6) { // e-stop
+                msgLimitSwitchEvent.motor = deviceTriggered;
+                msgLimitSwitchEvent.enable = MotorBoard.eStopState();
+                pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
+            }
+
             // can reset now that we've processed events
             MotorBoard.resetLimitSwitchTriggered();
         }
@@ -396,7 +394,7 @@ MCBstate ManualIdle(void)
 {
     stateCurrent = stateManualIdle;
 
-    Serial.println("\n**************************");
+    Serial.println("\n\n**************************");
     Serial.println("Entering Manual Idle State");
     Serial.println("**************************");
 
@@ -412,9 +410,9 @@ MCBstate ManualIdle(void)
     bool configFinished = false;
 
     // wait until gains have been set via serial OR user overrides by holding buttons
-    Serial.println(F("\nROS Configuration"));
-    rosConfig.printMenu();
-    rosConfig.printWaitCommand();
+    //Serial.println(F("\nROS Configuration"));
+    //rosConfig.printMenu();
+    //rosConfig.printWaitCommand();
     while ((modeState == Manual) && !configFinished) {
         // check for serial commands
         //if (!rosConfig.runOnce()) {
@@ -498,9 +496,9 @@ MCBstate ManualControl()
 {
     stateCurrent = stateManualControl;
 
-    Serial.println("\n*****************************");
+    Serial.println("\n\n*****************************");
     Serial.println("Entering Manual Control State");
-    Serial.println("*****************************");
+    Serial.println("*****************************\n");
 
     // set desired motor position to current position (prevents unexpected movement)
     for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
@@ -545,9 +543,15 @@ MCBstate ManualControl()
             }
             else if (MotorBoard.limitSwitchTriggeredFlag()) {
                 // limit switch was triggered
-                Serial.print("\nLimit Switch #");
+                Serial.print("limit switch ");
                 Serial.print(device);
-                Serial.println(" Triggered");
+                Serial.print(" triggered (switch is ");
+                if (MotorBoard.limitSwitchState(device)) {
+                    Serial.println("closed)");
+                }
+                else {
+                    Serial.println("open)");
+                }
 
                 // disable this motor
                 MotorBoard.disableAmp(device);
@@ -677,7 +681,7 @@ void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor & msg)
 
 void subEnableAllMotorsCallback(const std_msgs::Bool & msg)
 {
-    // MUST be in ROS Control state before enabling (otherwise PID isn't running)
+    // MUST be in ROS Control state before enabling (otherwise globalEnable is still false)
     if (stateCurrent != stateRosControl) {
         return;
     }
@@ -801,102 +805,6 @@ void runManualControl(void)
         MotorBoard.setCountDesired(currentMotorSelected, MotorBoard.getCountDesired(currentMotorSelected) - countStepManualControl);
 	}
 }
-
-//void srvEnableCallback(const std_srvs::SetBool::Request & req, std_srvs::SetBool::Response & res) 
-//{
-//	if (req.data) { // 'run' command
-//		if (ROSenable) {
-//			res.success = true;
-//			res.message = "Note: motor control already enabled";
-//		}
-//		else {
-//			if (stateCurrent == stateRosIdle) {
-//				ROSenable = true;
-//				res.success = true;
-//				res.message = "motor control enabled";
-//			}
-//			else {
-//				res.success = false;
-//				res.message = "Error: MCB not in ROS Idle state";
-//			}
-//		}
-//	}
-//	else { // 'stop' command
-//		ROSenable = false;
-//		if (stateCurrent == stateRosControl) {
-//			res.success = true;
-//			res.message = "motor control disabled";
-//		}
-//		else {
-//			res.success = false;
-//			res.message = "Error: MCB not in ROS Control state";
-//		}
-//	}
-//}
-
-//void srvGetGainsCallback(const beginner_tutorials::srvGetGainsRequest & req, beginner_tutorials::srvGetGainsResponse & res)
-//{
-//    Serial.print("Entered GetGains CB ... ");
-//    //noInterrupts();
-//
-//    // ensure a module exists at location requested
-//    if (!MotorBoard.isModuleConfigured(req.module)) {
-//        res.success = -1;
-//        res.errorMessage = "No module at location requested";
-//    }
-//    else {
-//        // retrieve gains
-//        FloatVec gains(MotorBoard.getGains(req.module));
-//
-//        // assemble response
-//        res.kp = gains.at(0);
-//        res.ki = gains.at(1);
-//        res.kd = gains.at(2);
-//        res.success = 1;
-//        res.errorMessage = "no error";
-//    }
-//
-//    //interrupts();
-//    Serial.println("returned");
-//}
-
-//void srvSetGainsCallback(const beginner_tutorials::srvSetGainsRequest & req, beginner_tutorials::srvSetGainsResponse & res)
-//{
-//    //noInterrupts();
-//
-//    // ensure a module exists at location requested
-//    if (!MotorBoard.isModuleConfigured(req.moduleToSet)) {
-//        res.success = -1;
-//        res.errorMessage = "No module at location requested";
-//    }
-//    else {
-//        MotorBoard.setGains(req.moduleToSet, req.kp, req.ki, req.kd);
-//        res.success = 1;
-//    }
-//
-//    //interrupts();
-//}
-
-//void srvStatusMCBCallback(const beginner_tutorials::srvStatusMCBRequest & req, beginner_tutorials::srvStatusMCBResponse & res)
-//{
-//    //noInterrupts();
-//
-//    res.numModules = MotorBoard.numModules();
-//    res.currentState = MCBstateToString(stateCurrent);
-//
-//    for (int ii = 0; ii < 6; ii++) {
-//        res.encoderCommand[ii] = MotorBoard.getCountDesired(ii);
-//        res.encoderCurrent[ii] = MotorBoard.getCountLast(ii);
-//        res.controllerEffort[ii] = MotorBoard.getEffort(ii);
-//    }
-//
-//    uint32_t tmpIP = (uint32_t)nh.getHardware()->wiznet_ip;
-//    memcpy(res.ip, &tmpIP, 4);
-//    memcpy(res.mac, nh.getHardware()->wiznet_mac, 6);
-//    res.limitSwitchTriggered = false;
-//
-//    //interrupts();
-//}
 
 char* MCBstateToString(MCBstate currentState) {
     char* stateName;

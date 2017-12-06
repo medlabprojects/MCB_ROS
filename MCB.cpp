@@ -206,6 +206,7 @@ bool MCB::enableAmp(uint8_t position)
             // prevent sudden movement once powered
             setCountDesired(position, getCountLast(position)); // sync current/desired position
             restartPid(position); // restart the PID controller
+            DACval_.at(position) = modules_.at(position).effortToDacCommand(0.0); // set DAC to command 0 amps
 
             // amp is enabled when ampCtrlState == limitSwitchState
             ampCtrlState_[position] = limitSwitchState_.at(position);
@@ -400,7 +401,7 @@ uint8_t MCB::updateAmpStates(void)
                 device = aa; // we assume only 1 limit switch gets triggered between each updateAmpStates() call
             }
             else {
-                // ampEnabled must have changed due to ampCtrl, not limitSwitch
+                // ampEnabled must have changed due to ampCtrl (via the user), not limitSwitch
             }
         }
 
