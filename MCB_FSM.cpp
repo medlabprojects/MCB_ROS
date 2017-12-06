@@ -309,6 +309,7 @@ MCBstate RosControl()
 
     // set global enable
     MotorBoard.globalEnable(true);
+    MotorBoard.updateAmpStates();
 
     //noInterrupts();
 
@@ -323,16 +324,24 @@ MCBstate RosControl()
             // update current states of limit switches and ampEnable pins
             uint8_t deviceTriggered = MotorBoard.updateAmpStates();
 
-            // publish limit switch event
+            // process limit switch event
             if (MotorBoard.limitSwitchTriggeredFlag()) {
+                // disable motor
+                MotorBoard.disableAmp(deviceTriggered);
+
+                // publish limit switch event
                 msgLimitSwitchEvent.motor = deviceTriggered;
                 msgLimitSwitchEvent.enable = MotorBoard.limitSwitchState(deviceTriggered);
                 pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
             }
             else if (deviceTriggered == 6) { // e-stop
+                // publish limit switch event
                 msgLimitSwitchEvent.motor = deviceTriggered;
                 msgLimitSwitchEvent.enable = MotorBoard.eStopState();
                 pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
+
+                // exit ROS control state
+                ROSenable = false;
             }
 
             // can reset now that we've processed events

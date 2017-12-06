@@ -53,7 +53,7 @@ int MCB::init(void)
             return -1; // error: incorrect module configuration
         }
     }
-	
+	//
 	// initialize DACs
 	DAC_.beginTransfer();
 	for (uint8_t bb = 0; bb < numModules_; bb++)
@@ -204,9 +204,9 @@ bool MCB::enableAmp(uint8_t position)
         if (!isAmpEnabled(position) && !eStopState_)
         {
             // prevent sudden movement once powered
-            setCountDesired(position, getCountLast(position)); // sync current/desired position
             restartPid(position); // restart the PID controller
-            DACval_.at(position) = modules_.at(position).effortToDacCommand(0.0); // set DAC to command 0 amps
+            modules_.at(position).step(); // step PID to update encoder position
+            setCountDesired(position, getCountLast(position)); // set desired count to current
 
             // amp is enabled when ampCtrlState == limitSwitchState
             ampCtrlState_[position] = limitSwitchState_.at(position);
