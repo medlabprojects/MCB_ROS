@@ -30,7 +30,7 @@ public:
 	
 	bool init(float kp, float ki, float kd); // initializes encoder/PID controller and enables module
 	bool init(void); // ^^ except initializes with PID gains all set to 0.0
-	bool isConfigured(void); // returns true after proper initialization
+	bool isConfigured(void); // returns true after proper initializationa
 
     // Motor
     void setMotorPolarity(bool polarity);

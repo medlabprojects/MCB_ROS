@@ -102,7 +102,12 @@ bool LS7366R::resetCount(void)
     if (isConfigured()) {
         // clear CNTR register
         write(CLR_CNTR);
+
+        // check that reset was successful
+
     }
+
+    
 
     return isConfigured();
 }

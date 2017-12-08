@@ -155,15 +155,24 @@ int32_t MCBmodule::getCountLast(void)
 bool MCBmodule::resetCount(void)
 {
     bool success = false;
+    uint8_t maxAttempts = 5; // number of reset attempts before giving up
 
-    // reset count register to zero
-    enc_.resetCount();
+    for (uint8_t attempt = 0; attempt < maxAttempts; attempt++) {
+        // reset count register to zero
+        enc_.resetCount();
 
-    // call readCount() to make sure we update countLast_
-    if (!readCount()) { // should be zero
-        success = true;
+        // call readCount() to make sure we update countLast_
+        if (!readCount()) { // should be zero
+            success = true;
+            
+            // prevent suddent movement upon re-enabling motor
+            restartPid();
+            setCountDesired(0);
+
+            break;
+        }
     }
-
+    
     return success;
 }
 

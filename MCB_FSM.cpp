@@ -49,8 +49,8 @@ ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempnam
 ros::Subscriber<std_msgs::Bool>                          subEnableAllMotors("tempname", &subEnableAllMotorsCallback); // enables or disables all motors
 ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tempname", &subSetGainsCallback); // sets gains for a specific motor
 ros::Subscriber<medlab_motor_control_board::McbEncoders> subEncoderCommand("tempname", &subEncoderCommandCallback); // receives motor commands
-ros::Subscriber<std_msgs::UInt8>                         subEncoderResetSingle("tempname", &subEncoderResetSingleCallback); // resets a single encoder to zero
-ros::Subscriber<std_msgs::Empty>                         subEncoderResetAll("tempname", &subEncoderResetAllCallback); // resets all encoders to zero
+ros::Subscriber<std_msgs::UInt8>                         subEncoderZeroSingle("tempname", &subEncoderZeroSingleCallback); // resets a single encoder to zero
+ros::Subscriber<std_msgs::Empty>                         subEncoderZeroAll("tempname", &subEncoderZeroAllCallback); // resets all encoders to zero
 ros::Subscriber<std_msgs::Bool>                          subEnableRosControl("tempname", &subEnableRosControlCallback); // used to move between RosIdle and RosControl states
 ros::Subscriber<std_msgs::Empty>                         subGetStatus("tempname", &subGetStatusCallback); // tells MCB to publish pubStatus
 
@@ -93,7 +93,7 @@ MCBstate stepStateMachine(MCBstate stateNext)
 		return RosControl();
 
 	default:
-		Serial.println("Error: Unrecognized State");
+		Serial.println(F("Error: Unrecognized State"));
         while (1) {
             MotorBoard.setLEDG(HIGH);
             delay(500);
@@ -112,15 +112,15 @@ MCBstate PowerUP(void)
     Serial.setTimeout(100);
 
 	// initialize motor control board
-    Serial.println("\n********************************");
-    Serial.println("Initializing Motor Control Board");
-    Serial.print("Firmware Version ");
+    Serial.println(F("\n********************************"));
+    Serial.println(F("Initializing Motor Control Board"));
+    Serial.print(F("Firmware Version "));
     Serial.println(MCB_VERSION);
-    Serial.println("********************************\n");
+    Serial.println(F("********************************\n"));
 	
     if (MotorBoard.init() == -1) {
-        Serial.println("\nERROR: INCORRECT MODULE CONFIGURATION");
-        Serial.println("\nPower off and ensure there are no gaps between modules");
+        Serial.println(F("\nERROR: INCORRECT MODULE CONFIGURATION"));
+        Serial.println(F("\nPower off and ensure there are no gaps between modules"));
         while (1) {
             MotorBoard.setLEDG(HIGH);
             delay(500);
@@ -129,7 +129,7 @@ MCBstate PowerUP(void)
         }
     }
     Serial.print(MotorBoard.numModules());
-    Serial.println(" motor modules detected and configured");
+    Serial.println(F(" motor modules detected and configured"));
 
     delay(10);
 
@@ -163,9 +163,9 @@ MCBstate RosInit()
 {
 	stateCurrent = stateRosInit;
 
-    Serial.println("\n\n******************");
-    Serial.println("ROS Initialization");
-    Serial.println("******************");
+    Serial.println(F("\n\n******************"));
+    Serial.println(F("ROS Initialization"));
+    Serial.println(F("******************"));
 
     ROSenable = false;
 
@@ -176,8 +176,8 @@ MCBstate RosInit()
     pubLimitSwitchEvent   = ros::Publisher("limit_switch_event", &msgLimitSwitchEvent);
     pubStatus             = ros::Publisher("status", &msgStatus);
     subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
-    subEncoderResetSingle = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderResetSingleCallback);
-    subEncoderResetAll    = ros::Subscriber<std_msgs::Empty>("encoder_reset_all", &subEncoderResetAllCallback);
+    subEncoderZeroSingle  = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderZeroSingleCallback);
+    subEncoderZeroAll     = ros::Subscriber<std_msgs::Empty>("encoder_reset_all", &subEncoderZeroAllCallback);
     subEnableMotor        = ros::Subscriber<medlab_motor_control_board::EnableMotor>("enable_motor", &subEnableMotorCallback);
     subEnableAllMotors    = ros::Subscriber<std_msgs::Bool>("enable_all_motors", &subEnableAllMotorsCallback);
     subSetGains           = ros::Subscriber<medlab_motor_control_board::McbGains>("set_gains", &subSetGainsCallback);
@@ -186,12 +186,12 @@ MCBstate RosInit()
 
 
 	// set up Wiznet and connect to ROS server
-	Serial.print("Configuring Ethernet Connection ... ");
+	Serial.print(F("Configuring Ethernet Connection ... "));
 	nh.initNode();
 
 	// repeatedly attempt to setup the hardware, loop on fail, stop on success
 	while ((nh.getHardware()->error() < 0) && (modeState == Ros)) {
-		Serial.print("WIZnet eror = ");
+		Serial.print(F("WIZnet eror = "));
 		Serial.println(nh.getHardware()->error());
 
 		nh.initNode();
@@ -201,16 +201,16 @@ MCBstate RosInit()
 		return stateManualIdle;
 	}
 
-	Serial.println("Success!");
+	Serial.println(F("Success!"));
 
 	// initialize ROS
-	Serial.print("Connecting to ROS Network ... ");
+	Serial.print(F("Connecting to ROS Network ... "));
 	nh.advertise(pubEncoderCurrent);
     nh.advertise(pubStatus);
     nh.advertise(pubLimitSwitchEvent);
 	nh.subscribe(subEncoderCommand);
-    nh.subscribe(subEncoderResetSingle);
-    nh.subscribe(subEncoderResetAll);
+    nh.subscribe(subEncoderZeroSingle);
+    nh.subscribe(subEncoderZeroAll);
     nh.subscribe(subEnableMotor);
     nh.subscribe(subEnableAllMotors);
     nh.subscribe(subSetGains);
@@ -229,16 +229,16 @@ MCBstate RosInit()
 		return stateManualIdle;
 	}
 
-	Serial.println("Success!");
+	Serial.println(F("Success!"));
 	
 	// initialize motors
-	Serial.print("Initializing Motors ... ");
+	Serial.print(F("Initializing Motors ... "));
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
         MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
         MotorBoard.setPolarity(ii, 1);
 	}
-	Serial.println("done");
+	Serial.println(F("done"));
 
 	switch (modeState) {
 	case Manual:
@@ -256,10 +256,10 @@ MCBstate RosIdle()
 {
 	stateCurrent = stateRosIdle;
 
-    Serial.println("\n\n*************************");
-	Serial.println("\nEntering ROS Idle state");
-    Serial.println("*************************");
-    Serial.println("\nwaiting for enable signal via enable_controller");
+    Serial.println(F("\n\n*************************"));
+	Serial.println(F("\nEntering ROS Idle state"));
+    Serial.println(F("*************************"));
+    Serial.println(F("\nwaiting for enable signal via enable_controller"));
 
     // ensure amps are off
     MotorBoard.disableAllAmps();
@@ -292,9 +292,9 @@ MCBstate RosControl()
 {
 	stateCurrent = stateRosControl;
 
-    Serial.println("\n\n**************************");
-    Serial.println("Entering ROS Control state");
-    Serial.println("**************************");
+    Serial.println(F("\n\n**************************"));
+    Serial.println(F("Entering ROS Control state"));
+    Serial.println(F("**************************"));
 
 	// set desired motor position to current position (prevents unexpected movement)
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
@@ -387,7 +387,7 @@ MCBstate RosControl()
 
 	if (!nh.connected()) {
 		nh.getHardware()->error() = WiznetHardware::ERROR_CONNECT_FAIL;
-		Serial.println("ROS connection lost");
+		Serial.println(F("ROS connection lost"));
 		return stateRosInit;
 	}
 
@@ -403,9 +403,9 @@ MCBstate ManualIdle(void)
 {
     stateCurrent = stateManualIdle;
 
-    Serial.println("\n\n**************************");
-    Serial.println("Entering Manual Idle State");
-    Serial.println("**************************");
+    Serial.println(F("\n\n**************************"));
+    Serial.println(F("Entering Manual Idle State"));
+    Serial.println(F("**************************"));
 
     // ensure amps are off and controller is not running
     MotorBoard.disableAllAmps();
@@ -482,11 +482,11 @@ MCBstate ManualIdle(void)
     }
 
     // initialize motors
-    Serial.print("Initializing Motors ... ");
+    Serial.print(F("Initializing Motors ... "));
     for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
         MotorBoard.setGains(ii, kp, ki, kd);
     }
-    Serial.println("done");
+    Serial.println(F("done"));
 
     // advance based on mode switch position
     switch (modeState) {
@@ -505,9 +505,9 @@ MCBstate ManualControl()
 {
     stateCurrent = stateManualControl;
 
-    Serial.println("\n\n*****************************");
-    Serial.println("Entering Manual Control State");
-    Serial.println("*****************************\n");
+    Serial.println(F("\n\n*****************************"));
+    Serial.println(F("Entering Manual Control State"));
+    Serial.println(F("*****************************\n"));
 
     // set desired motor position to current position (prevents unexpected movement)
     for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
@@ -540,7 +540,7 @@ MCBstate ManualControl()
             uint8_t device = MotorBoard.updateAmpStates(); // module triggered indicated by green LED
 
             if (device == 6) {
-                Serial.println("\nE-Stop Engaged! \nExiting Manual Control State");
+                Serial.println(F("\nE-Stop Engaged! \nExiting Manual Control State"));
 
                 // stop timers and disable amps
                 timerManualControl.end();
@@ -552,14 +552,14 @@ MCBstate ManualControl()
             }
             else if (MotorBoard.limitSwitchTriggeredFlag()) {
                 // limit switch was triggered
-                Serial.print("limit switch ");
+                Serial.print(F("limit switch "));
                 Serial.print(device);
-                Serial.print(" triggered (switch is ");
+                Serial.print(F(" triggered (switch is "));
                 if (MotorBoard.limitSwitchState(device)) {
-                    Serial.println("closed)");
+                    Serial.println(F("closed)"));
                 }
                 else {
-                    Serial.println("open)");
+                    Serial.println(F("open)"));
                 }
 
                 // disable this motor
@@ -715,17 +715,18 @@ void subEncoderCommandCallback(const medlab_motor_control_board::McbEncoders& ms
 	}
 }
 
-void subEncoderResetSingleCallback(const std_msgs::UInt8 & msg)
+void subEncoderZeroSingleCallback(const std_msgs::UInt8 & msg)
 {
     // ensure request is valid
     if (msg.data <= MotorBoard.numModules()) {
-        // reset the encoder count for the desired motor
+        // disable amp and reset the encoder count to zero for the desired motor
         MotorBoard.resetCount(msg.data);
     }
 }
 
-void subEncoderResetAllCallback(const std_msgs::Empty & msg)
+void subEncoderZeroAllCallback(const std_msgs::Empty & msg)
 {
+    // disables all amps and resets encoder counts to zero
     MotorBoard.resetCounts();
 }
 
