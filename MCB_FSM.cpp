@@ -176,8 +176,8 @@ MCBstate RosInit()
     pubLimitSwitchEvent   = ros::Publisher("limit_switch_event", &msgLimitSwitchEvent);
     pubStatus             = ros::Publisher("status", &msgStatus);
     subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
-    subEncoderZeroSingle  = ros::Subscriber<std_msgs::UInt8>("encoder_reset_single", &subEncoderZeroSingleCallback);
-    subEncoderZeroAll     = ros::Subscriber<std_msgs::Empty>("encoder_reset_all", &subEncoderZeroAllCallback);
+    subEncoderZeroSingle  = ros::Subscriber<std_msgs::UInt8>("encoder_zero_single", &subEncoderZeroSingleCallback);
+    subEncoderZeroAll     = ros::Subscriber<std_msgs::Empty>("encoder_zero_all", &subEncoderZeroAllCallback);
     subEnableMotor        = ros::Subscriber<medlab_motor_control_board::EnableMotor>("enable_motor", &subEnableMotorCallback);
     subEnableAllMotors    = ros::Subscriber<std_msgs::Bool>("enable_all_motors", &subEnableAllMotorsCallback);
     subSetGains           = ros::Subscriber<medlab_motor_control_board::McbGains>("set_gains", &subSetGainsCallback);
