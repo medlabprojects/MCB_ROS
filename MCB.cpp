@@ -787,7 +787,16 @@ int32_t MCB::getCountLast(uint8_t moduleNum)
 
 bool MCB::resetCount(uint8_t moduleNum)
 {
-    return modules_.at(moduleNum).resetCount();
+    bool success = false;
+
+    // verify module number exists
+    if (moduleNum < numModules_) {
+        // ensure module is disabled before zeroing encoder count
+        disableAmp(moduleNum);
+        success = modules_[moduleNum].resetCount();
+    }
+   
+    return success;
 }
 
 bool MCB::resetCounts(void)
