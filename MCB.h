@@ -79,6 +79,7 @@ public:
     Int32Vec getCountsDesired(void); // returns vector of last commanded count targets
     Int32Vec getCountsLast(void); // returns most recent encoder counts
     int32_t  getCountLast(uint8_t moduleNum); // returns most recent motor position
+    int32_t  readCountCurrent(uint8_t moduleNum); // reads (via SPI) the current encoder count
     bool     resetCount(uint8_t moduleNum);   // resets the encoder count to zero
     bool     resetCounts(void); // resets all encoders to zero
 

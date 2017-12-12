@@ -235,7 +235,7 @@ MCBstate RosInit()
 	Serial.print(F("Initializing Motors ... "));
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setGains(ii, kp, ki, kd);
-        MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
+        MotorBoard.setCountDesired(ii, MotorBoard.readCountCurrent(ii));
         MotorBoard.setPolarity(ii, 1);
 	}
 	Serial.println(F("done"));
@@ -264,11 +264,41 @@ MCBstate RosIdle()
     // ensure amps are off
     MotorBoard.disableAllAmps();
     MotorBoard.globalEnable(false);
+    MotorBoard.updateAmpStates();
+
+    // start ROS update timer
+    timerRos.begin(timerRosCallback, timeStepRos);
+    uint32_t rosLoopCount = 0;
 
 	// wait for ROS enable command via service call
 	while (!ROSenable && nh.connected() && (modeState == Ros)) {
         noInterrupts(); // prevent interrupts during SPI communication
-		nh.spinOnce();
+
+        if (timerRosFlag) {
+            if (rosLoopCount % publishInterval == 0) {
+                // assemble encoder message to send out
+                for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
+                    if (MotorBoard.isAmpEnabled(ii)) {
+                        // stepPid() updates/reads count only if amp is enabled
+                        msgEncoderCurrent.measured[ii] = MotorBoard.getCountLast(ii);
+                    }
+                    else {
+                        // must manually read current count when disabled
+                        msgEncoderCurrent.measured[ii] = MotorBoard.readCountCurrent(ii);
+                    }
+                    msgEncoderCurrent.desired[ii] = MotorBoard.getCountDesired(ii);
+                }
+                // queue messages into their publishers
+                pubEncoderCurrent.publish(&msgEncoderCurrent);
+            }
+            rosLoopCount++;
+
+            // process pending ROS communications
+            nh.spinOnce();
+
+            timerRosFlag = false;
+        }
+
         interrupts();
 	}
 
@@ -298,7 +328,7 @@ MCBstate RosControl()
 
 	// set desired motor position to current position (prevents unexpected movement)
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-		MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
+		MotorBoard.setCountDesired(ii, MotorBoard.readCountCurrent(ii));
 	}
 
 	// start PID timer
@@ -361,7 +391,14 @@ MCBstate RosControl()
             if (rosLoopCount % publishInterval == 0) {
                 // assemble encoder message to send out
                 for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-                    msgEncoderCurrent.measured[ii] = MotorBoard.getCountLast(ii);
+                    if (MotorBoard.isAmpEnabled(ii)) {
+                        // stepPid() updates/reads count only if amp is enabled
+                        msgEncoderCurrent.measured[ii] = MotorBoard.getCountLast(ii);
+                    }
+                    else {
+                        // must manually read current count when disabled
+                        msgEncoderCurrent.measured[ii] = MotorBoard.readCountCurrent(ii);
+                    }
                     msgEncoderCurrent.desired[ii] = MotorBoard.getCountDesired(ii);
                 }
                 // queue messages into their publishers

@@ -205,7 +205,7 @@ bool MCB::enableAmp(uint8_t position)
         {
             // prevent sudden movement once powered
             restartPid(position); // restart the PID controller
-            modules_.at(position).step(); // step PID to update encoder position
+            readCountCurrent(position); // step PID to update encoder position
             setCountDesired(position, getCountLast(position)); // set desired count to current
 
             // amp is enabled when ampCtrlState == limitSwitchState
@@ -216,7 +216,7 @@ bool MCB::enableAmp(uint8_t position)
             // the changing ampEnabled pin triggers the interrupt again
             // since we are aware of this (we caused it), it is safe to reset
             pins.i2cPins.resetInterrupts();
-            ampEnableFlag_ = false;
+            //ampEnableFlag_ = false;
         }
 
         success = true;
@@ -251,7 +251,7 @@ bool MCB::disableAmp(uint8_t position)
         if (isAmpEnabled(position))
         {
             // prevent sudden movement once powered
-            setCountDesired(position, getCountLast(position)); // sync current/desired position
+            setCountDesired(position, readCountCurrent(position)); // sync current/desired position
             restartPid(position); // restart the PID controller
             DACval_.at(position) = modules_.at(position).effortToDacCommand(0.0); // set DAC to command 0 amps
 
@@ -263,7 +263,7 @@ bool MCB::disableAmp(uint8_t position)
             // the changing ampEnabled pin triggers the interrupt again
             // since we are aware of this (we caused it), it is safe to reset
             pins.i2cPins.resetInterrupts();
-            ampEnableFlag_ = false;
+            //ampEnableFlag_ = false;
         }
 
         success = true;
@@ -783,6 +783,11 @@ Int32Vec MCB::getCountsLast(void)
 int32_t MCB::getCountLast(uint8_t moduleNum)
 {	
 	return modules_.at(moduleNum).getCountLast();
+}
+
+int32_t MCB::readCountCurrent(uint8_t moduleNum)
+{
+    return modules_.at(moduleNum).readCount();
 }
 
 bool MCB::resetCount(uint8_t moduleNum)
