@@ -675,8 +675,8 @@ void ampEnableISR(void)
 
 void modeSwitchCallback(void)
 {
-    // HIGH = Manual; LOW = Ros
-	modeState = (digitalReadFast(MotorBoard.pins.modeSelect) ? Manual : Ros);
+    // HIGH = ROS; LOW = Manual
+	modeState = (digitalReadFast(MotorBoard.pins.modeSelect) ? Ros: Manual);
 }
 
 void timerPidCallback(void)

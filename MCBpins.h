@@ -91,18 +91,19 @@ public:
 		digitalWriteFast(resetWiz, HIGH);
 	}
 
-	// These pins are current as of Rev 1.3
+	// These pins are current as of Rev 1.4
     Adafruit_MCP23008 i2cPins; // extra GPIO available over I2C via MCP23008
     const uint8_t i2cBrakeHw = 0;  // i2cPin: connected to hardware brake switch
-    const uint8_t i2cEnableM5 = 1; // i2cPin: state of enable pin for motor 5 amp
-    const uint8_t i2cEnableM4 = 2; // i2cPin: state of enable pin for motor 4 amp
-    const uint8_t i2cEnableM3 = 3; // i2cPin: state of enable pin for motor 3 amp
-    const uint8_t i2cEnableM2 = 4; // i2cPin: state of enable pin for motor 2 amp
-    const uint8_t i2cEnableM1 = 5; // i2cPin: state of enable pin for motor 1 amp
-    const uint8_t i2cEnableM0 = 6; // i2cPin: state of enable pin for motor 0 amp
-    const uint8_t i2cEnableGlobal = 7; // i2cPin: global enable control for all amps
+    const uint8_t i2cEnableM5 = 2; // i2cPin: state of enable pin for motor 5 amp
+    const uint8_t i2cEnableM4 = 3; // i2cPin: state of enable pin for motor 4 amp
+    const uint8_t i2cEnableM3 = 4; // i2cPin: state of enable pin for motor 3 amp
+    const uint8_t i2cEnableM2 = 5; // i2cPin: state of enable pin for motor 2 amp
+    const uint8_t i2cEnableM1 = 6; // i2cPin: state of enable pin for motor 1 amp
+    const uint8_t i2cEnableM0 = 7; // i2cPin: state of enable pin for motor 0 amp
+    //const uint8_t i2cEnableGlobal = 7; // i2cPin: global enable control for all amps
     const uint8_t i2cInt = 22; // interrupt pin of MCP23008; signals when the enable pin of an amp changes
 
+    const uint8_t EnableGlobal = 33; // global enable control for all amps
     const uint8_t maxNumBoards = 6; // number of daughterboard sockets
 	const uint8_t csSdCard = 4;     // SD card chip-select
 	const uint8_t resetWiz = 9; // WIZ820io reset pin
