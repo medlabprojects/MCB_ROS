@@ -105,6 +105,7 @@ void Si5351::init(uint8_t xtal_load_c, uint32_t ref_osc_freq)
  */
 uint8_t Si5351::set_freq(uint64_t freq, uint64_t pll_freq, enum si5351_clock clk)
 {
+    // NOTE: freq is in hundreths of Hz
 	//struct Si5351RegSet ms_reg, pll_reg;
 	struct Si5351RegSet ms_reg; // added 3/13/2017 by TLB: fixes warning since pll_reg is not used
 	enum si5351_pll target_pll;

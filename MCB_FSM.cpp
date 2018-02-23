@@ -33,7 +33,7 @@ IntervalTimer timerManualControl; // Button read timer interrupt
 volatile bool timerManualControlFlag = false; // indicates timerManualControl has been called
 float frequencyManualControl = 500.0; // [Hz]
 uint32_t timeStepManualControl = uint32_t(1000000.0 / frequencyManualControl); // [us]
-uint32_t countStepManualControl = 200; // [counts] step size for each up/down button press
+uint32_t countStepManualControl = 25; // [counts] step size for each up/down button press
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
@@ -66,7 +66,8 @@ volatile bool timerPidFlag = false; // indicates timerPid has been called
 //int32_t countDesired[6]; // does this need to be volatile?
 float frequencyPid = 1000.0; // [Hz]
 uint32_t timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
-float kp = 0.0010, ki = 0.000003, kd = 0.035; // work ok for 1 kHz, RE25 brushed motor
+float kp = 0.0004, ki = 0.000002, kd = 0.01; // work ok for 1 kHz, EC13 brushless motor
+//float kp = 0.0010, ki = 0.000003, kd = 0.035; // work ok for 1 kHz, RE25 brushed motor
 // float kp = 0.0002, ki = 0.000001, kd = 0.01; // work ok for 2 kHz
 
 
@@ -548,7 +549,7 @@ MCBstate ManualControl()
 
     // set desired motor position to current position (prevents unexpected movement)
     for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
-        MotorBoard.setCountDesired(ii, MotorBoard.getCountLast(ii));
+        MotorBoard.setCountDesired(ii, MotorBoard.readCountCurrent(ii));
     }
 
     // start PID controllers
@@ -674,6 +675,7 @@ void ampEnableISR(void)
 
 void modeSwitchCallback(void)
 {
+    // HIGH = Manual; LOW = Ros
 	modeState = (digitalReadFast(MotorBoard.pins.modeSelect) ? Manual : Ros);
 }
 
