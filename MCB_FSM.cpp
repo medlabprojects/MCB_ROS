@@ -113,11 +113,11 @@ MCBstate PowerUP(void)
     Serial.setTimeout(100);
 
 	// initialize motor control board
-    Serial.println(F("\n********************************"));
-    Serial.println(F("Initializing Motor Control Board"));
-    Serial.print(F("Firmware Version "));
+    Serial.println("\n********************************");
+    Serial.println("Initializing Motor Control Board");
+    Serial.print("Firmware Version ");
     Serial.println(MCB_VERSION);
-    Serial.println(F("********************************\n"));
+    Serial.println("********************************\n");
 	
     if (MotorBoard.init() == -1) {
         Serial.println(F("\nERROR: INCORRECT MODULE CONFIGURATION"));

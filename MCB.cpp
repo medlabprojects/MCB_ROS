@@ -315,7 +315,7 @@ bool MCB::globalEnable(bool enable)
     // setting output LOW => Enabled
     // setting output HIGH => Disabled
     // Thus: output = !enable
-    pins.i2cPins.digitalWrite(pins.i2cEnableGlobal, !enable);
+    digitalWrite(pins.enableGlobal, !enable);
 
     return result;
 }
