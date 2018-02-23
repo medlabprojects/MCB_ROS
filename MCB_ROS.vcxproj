@@ -48,7 +48,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\libraries\ArduinoSTL\src;$(ProjectDir)..\libraries\ros_lib;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\libraries\SPI;C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\Extensions\u0agi2pv.vsa\Micro Platforms\visualmicro\ide\libraries;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\libraries;$(ProjectDir)..\libraries;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\cores\tiny;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\variants\digispark;$(ProjectDir)..\MCB_ROS;C:\Users\Trevor\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.8.1-arduino5\avr\include\;C:\Users\Trevor\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.8.1-arduino5\avr\include\avr\;C:\Users\Trevor\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.8.1-arduino5\lib\gcc\avr\4.8.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\libraries\Adafruit_MCP23008;$(ProjectDir)..\libraries\ArduinoSTL\src;$(ProjectDir)..\libraries\ros_lib;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\libraries\SPI;C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\Extensions\u0agi2pv.vsa\Micro Platforms\visualmicro\ide\libraries;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\libraries;$(ProjectDir)..\libraries;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\cores\tiny;C:\Users\Trevor\AppData\Local\arduino15\packages\digistump\hardware\avr\1.6.7\variants\digispark;$(ProjectDir)..\MCB_ROS;C:\Users\Trevor\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.8.1-arduino5\avr\include\;C:\Users\Trevor\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.8.1-arduino5\avr\include\avr\;C:\Users\Trevor\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.8.1-arduino5\lib\gcc\avr\4.8.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>$(ProjectDir)__vm\.MCB_ROS.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <PreprocessorDefinitions>__AVR_ATtiny85__;__AVR_ATTINY85__;_VMDEBUG=1;F_CPU=16500000L;ARDUINO=10801;ARDUINO_AVR_DIGISPARK;ARDUINO_ARCH_AVR;__cplusplus=201103L;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -83,6 +83,7 @@
     <ClInclude Include="MCB.h" />
     <ClInclude Include="MCBmodule.h" />
     <ClInclude Include="MCBpins.h" />
+    <ClInclude Include="McbRosConfiguration.h" />
     <ClInclude Include="PID_f32.h" />
     <ClInclude Include="si5351.h" />
     <ClInclude Include="MCB_FSM.h" />
@@ -107,7 +108,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties VM.DebugVariablesWindow.ColumnVisibleVariableValueHex="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMin="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMax="0" arduino.upload.port="COM11" />
+      <UserProperties VM.DebugVariablesWindow.ColumnVisibleVariableValueHex="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMin="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMax="0" arduino.upload.port="COM5" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>

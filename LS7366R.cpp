@@ -21,13 +21,13 @@ bool LS7366R::init(void)
 
     write(WRITE_MDR1, SIZE_4 | CNT_ENABLE | NO_FLAGS);
 
-	// clear CNTR register
-    write(CLR_CNTR);
-
     // check status register to ensure init was successful
     readStatus();
+
+    // clear CNTR register
+    resetCount();
     
-    return configured_;
+    return isConfigured();
 }
 
 uint8_t LS7366R::read(uint8_t opcode, uint8_t data_out)
@@ -94,6 +94,22 @@ int32_t LS7366R::getCount(void)
 	SPI.endTransaction();
 	
 	return count_temp.value;
+}
+
+bool LS7366R::resetCount(void)
+{
+    // must be properly configured first
+    if (isConfigured()) {
+        // clear CNTR register
+        write(CLR_CNTR);
+
+        // check that reset was successful
+
+    }
+
+    
+
+    return isConfigured();
 }
 
 uint8_t LS7366R::readStatus(void)

@@ -84,7 +84,7 @@ public:
 	void init(void);  // initializes using default settings
 	void init(uint32_t dataCtrl); // initialized using custom settings (|OR| your chosen control register #defines)
 	void reset(void); // software reset (required after changing output range)
-	void set(int16_t output); // set the DAC output
+	void set(uint16_t output); // set the DAC output
 
 	uint32_t transfer(uint8_uint32 dataOut);
 	void beginTransfer(void); // sets SPISettings and pulls SYNC low

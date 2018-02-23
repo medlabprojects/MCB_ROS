@@ -22,71 +22,73 @@
 #include "PID_f32.h"
 #include <math.h>
 
-MCBmodule::MCBmodule(uint8_t position)
-	: position_(position)
-	//, ENC_(getENCpin())	// setup LS7366R
-	, ENC_(pinsENC_[position])
+MCBmodule::MCBmodule(uint8_t csEnc)
+	: enc_(csEnc) // create encoder interface
 {
 }
 
 bool MCBmodule::init(float kp, float ki, float kd)
 {
-    bool configured = false;
-
     // set up PID controller
-    PID_.init(kp, ki, kd); 
+    pid_.init(kp, ki, kd); 
 
     // set up encoder IC (LS7366R)
     int maxAttempts = 5;
     int attempts = 0;
     while (attempts < maxAttempts) {
         attempts++;
-        if (ENC_.init()) {
-            setStatus(MODULE_ENABLE);
-            configured = true;
+        if (enc_.init()) {
+            configured_ = true;
         }
     }
-    return configured;
+    return configured_;
 }
 
 bool MCBmodule::init(void)
 {
-    bool configured = false;
-
     // set up PID controller
-    PID_.init();
+    pid_.init();
 
     // set up encoder IC (LS7366R)
     int maxAttempts = 5;
     int attempts = 0;
     while (attempts < maxAttempts) {
         attempts++;
-        if (ENC_.init()) {
-            setStatus(MODULE_ENABLE);
-            configured = true;
+        if (enc_.init()) {
+            configured_ = true;
             break;
         }
     }
-    return configured;
+    return configured_;
 }
 
-int16_t MCBmodule::step(void)
+bool MCBmodule::isConfigured(void)
 {
-	int16_t tmp = 0;
+    return configured_;
+}
 
-	if (getStatus()){
+uint16_t MCBmodule::step(void)
+{
+    uint16_t dacCmd; // DAC command
+
+    int8_t polarity = 1;
+    if (!motorPolarity_) {
+        polarity = -1;
+    }
+
+	if (isConfigured()){
 		// read current motor position and compute error
 		countError_ = countDesired_ - readCount();
 
 		// step PID controller to compute effort in Amps
-		effort_ = PID_.step(float(countError_));
+		effort_ = polarity * pid_.step(float(countError_));
 
-		// enforce max current bounds and convert to int16 for DAC
-		tmp = convertEffortToDAC(effort_);
+		// enforce voltage output bounds (typically -10V to +10V) and convert to int16 for DAC
+		dacCmd = effortToDacCommand(effort_);
 
 	}
 
-	return tmp;
+	return dacCmd;
 }
 
 float MCBmodule::getEffort(void)
@@ -94,9 +96,9 @@ float MCBmodule::getEffort(void)
 	return effort_;
 }
 
-void MCBmodule::restartPID(void)
+void MCBmodule::restartPid(void)
 {
-	PID_.reset();
+	pid_.reset();
 }
 
 int32_t MCBmodule::getError(void)
@@ -104,36 +106,26 @@ int32_t MCBmodule::getError(void)
 	return countError_;
 }
 
-int16_t MCBmodule::convertEffortToDAC(float effort)
+uint16_t MCBmodule::effortToDacCommand(float effort)
 {
 	float effortTemp = effort;
 
 	// check for saturation
-	if (effort > maxAmps_) { effortTemp = maxAmps_; }
-	else if (effort < -maxAmps_) { effortTemp = -maxAmps_; }
+	if (effort > dacRange_[1]) { 
+        effortTemp = dacRange_[1]; 
+    }
+	else if (effort < dacRange_[0]) { 
+        effortTemp = dacRange_[0]; 
+    }
 
-	// compute relative effort and scale to int16 range
-	return (int16_t)(32767 * (effortTemp / maxAmps_));
+    // encode effort to 16-bit DAC code
+    // DAC code = (2^16)*(effort - Vmin)/(Vmax - Vmin)
+    return static_cast<uint16_t>( 65535.0 * (effortTemp - dacRange_[0]) / (dacRange_[1] - dacRange_[0]) );
 }
 
-void MCBmodule::setStatus(bool status)
+void MCBmodule::setMotorPolarity(bool polarity)
 {
-	status_ = status;
-}
-
-bool MCBmodule::getStatus(void)
-{
-	return status_;
-}
-
-void MCBmodule::setMaxAmps(float maxAmps)
-{
-	maxAmps_ = fabsf(maxAmps); // just want the magnitude
-}
-
-float MCBmodule::getMaxAmps(void)
-{
-	return maxAmps_;
+    motorPolarity_ = polarity;
 }
 
 void MCBmodule::setCountDesired(int32_t countDesired)
@@ -150,7 +142,7 @@ int32_t MCBmodule::getCountDesired(void)
 int32_t MCBmodule::readCount(void)
 {
 	// read LS7366R
-	countLast_ = ENC_.getCount();
+	countLast_ = enc_.getCount();
 
 	return countLast_;
 }
@@ -160,44 +152,63 @@ int32_t MCBmodule::getCountLast(void)
 	return countLast_;
 }
 
+bool MCBmodule::resetCount(void)
+{
+    bool success = false;
+    uint8_t maxAttempts = 5; // number of reset attempts before giving up
+
+    for (uint8_t attempt = 0; attempt < maxAttempts; attempt++) {
+        // reset count register to zero
+        enc_.resetCount();
+
+        // call readCount() to make sure we update countLast_
+        if (!readCount()) { // should be zero
+            success = true;
+            
+            // prevent suddent movement upon re-enabling motor
+            restartPid();
+            setCountDesired(0);
+
+            break;
+        }
+    }
+    
+    return success;
+}
+
 void MCBmodule::setGains(float kp, float ki, float kd)
 {
-	PID_.setGains(kp, ki, kd);
+	pid_.setGains(kp, ki, kd);
 }
 
 void MCBmodule::setKp(float kp)
 {
-	PID_.setKp(kp);
+	pid_.setKp(kp);
 }
 
 void MCBmodule::setKi(float ki)
 {
-	PID_.setKi(ki);
+	pid_.setKi(ki);
 }
 
 void MCBmodule::setKd(float kd)
 {
-	PID_.setKd(kd);
+	pid_.setKd(kd);
 }
 
 float MCBmodule::getKp(void)
 {
-	return PID_.getKp();
+	return pid_.getKp();
 }
 
 float MCBmodule::getKi(void)
 {
-	return PID_.getKi();
+	return pid_.getKi();
 }
 
 float MCBmodule::getKd(void)
 {
-	return PID_.getKd();
-}
-
-uint8_t MCBmodule::getENCpin(void)
-{	
-	return pinsENC_[position_];
+	return pid_.getKd();
 }
 
 MCBmodule::~MCBmodule(void)

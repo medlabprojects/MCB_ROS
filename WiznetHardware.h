@@ -4,34 +4,34 @@
 #include <Ethernet.h>
 
 class WiznetHardware {
-    private:
-        EthernetClient my_client;
-        int my_error;
+private:
+    EthernetClient my_client;
+    int my_error;
 
-    public:
-        static const int ERROR_NONE = 0;
-        static const int ERROR_NOT_SETUP = -1;
-        static const int ERROR_WIZNET_IP_FAIL = -2;
-        static const int ERROR_CONNECT_FAIL = -3;
-        IPAddress wiznet_ip;
-        uint8_t wiznet_mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+public:
+    static const int ERROR_NONE = 0;
+    static const int ERROR_NOT_SETUP = -1;
+    static const int ERROR_WIZNET_IP_FAIL = -2;
+    static const int ERROR_CONNECT_FAIL = -3;
+    IPAddress wiznet_ip;
+    uint8_t wiznet_mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
-    public:
-        WiznetHardware() 
-            : my_client(),
-              wiznet_ip(192, 168, 0, 40)
-        {
-	        sendResetPulse();
-	        my_error = ERROR_NOT_SETUP;
-	        return;
-        }
+public:
+    WiznetHardware() 
+        : my_client()
+        , wiznet_ip(192, 168, 0, 40)
+    {
+	    sendResetPulse();
+	    my_error = ERROR_NOT_SETUP;
+	    return;
+    }
 
     void init() {
-        unsigned int ros_port = 11411;      // default ros port
-	    IPAddress ros_ip(192, 168, 0, 1);   // IP of server running ROS
-	    Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip address of the Wiznet board.
+        uint16_t ros_port = 11411;      // default ros port
+        IPAddress ros_ip(192, 168, 0, 1);   // IP of server running ROS
+        Ethernet.begin(wiznet_mac, wiznet_ip); // set the MAC address and ip address of the Wiznet board.
         delay(1000); // give wiznet time to configure
-	    if ( !(Ethernet.localIP() == wiznet_ip)) {
+        if (!(Ethernet.localIP() == wiznet_ip)) {
             sendResetPulse(); // attempt to reset Wiznet
             my_error = ERROR_WIZNET_IP_FAIL;
             return;
@@ -42,6 +42,14 @@ class WiznetHardware {
         }
         my_error = ERROR_NONE;
         return;
+    }
+
+    void setIP(IPAddress ip) {
+        wiznet_ip = ip;
+    }
+
+    void setMAC(uint8_t* mac) {
+        memcpy(wiznet_mac, mac, 6);
     }
 
     int read() {
