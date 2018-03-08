@@ -8,9 +8,13 @@ Follow these steps to setup the toolchain for compiling and uploading firmare to
 
 ### Prerequisites
 - [Teensy 3.2](https://www.pjrc.com/store/teensy32.html)
+- WIZnet ethernet module ([WIZ820io](http://www.wiznet.co.kr/product-item/wiz820io/) or [WIZ850io](http://www.wiznet.co.kr/product-item/wiz850io/)) and [adapter board](https://www.pjrc.com/store/wiz820_sd_adaptor.html) (Rev 2) for Teensy
+- Fully assembled Motor Control Board (current version: 1.4) and at least one daughterboard
 - Micro-USB to USB cable
 - A ROS workstation with [Kinetic](http://wiki.ros.org/kinetic/Installation) installed
    - Note: not required to be the same machine you will be setting up for programming the Teensy
+- medlab_motor_control_board ROS package
+   - Contains the msg definitions used by MCB_ROS
 
 ### Toolchain Installation and Setup
 
@@ -55,7 +59,7 @@ Communication between ROS and the Teensy is accomplished using rosserial. Follow
    sudo apt-get install ros-kinetic-rosserial-arduino
    sudo apt-get install ros-kinetic-rosserial
    ```
-2. Install ros_lib into the Arduino environment
+2. Install ros_lib into the Arduino environment  
 - If you set up the Arduino toolchain above on your ROS workstation, run:
 ```
 cd <arduino_directory>/portable/sketchbook/libraries
@@ -67,6 +71,7 @@ rosrun rosserial_arduino make_libraries.py .
 cd <some_empty_directory>
 rosrun rosserial_arduino make_libraries.py .
 ```
+   *Note: if you get error messages about not finding rosserial-arduino, make sure you've re-sourced your ROS workspace. If you've followed the ROS setup tutorials and added this to your .bashrc script, you can just open a new terminal.*
 
 ### Compiling and Uploading Firmware
 1. Start the Arduino IDE and open MCB_ROS.ino
@@ -76,6 +81,11 @@ rosrun rosserial_arduino make_libraries.py .
    - Tools -> CPU Speed -> 96 MHz (overclock)
    - Tools -> Optimize -> Faster (this ensures we use the compile options we changed in boards.txt)
    - Tools -> Port -> (depends on OS; select whichever Teensy is connected to)
+4. Press the upload button
+   - This will compile and then open the Teensy Loader application
+   - If Teensy Loader does not automatically upload, press the white button labeled 'PGM' on the Motor Control Board to manually enter Program Mode  
+
+   *Hint: if there are errors during compilation, you can get more information by turning on verbose output. File -> Preferences -> Settings -> Show verbose output during: compilation*
 
 ## How to Use
 
