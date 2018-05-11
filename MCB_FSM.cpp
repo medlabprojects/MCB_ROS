@@ -37,22 +37,34 @@ uint32_t countStepManualControl = 25; // [counts] step size for each up/down but
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
-String rosNamespace = "configure_me_over_serial";
-String rosNameEncoderCurrent = "/encoder_current";
+//String rosNamespace = "configure_me_over_serial";
+String rosNamespace = "MCB2";
+String rosNameEncoderCurrent    = rosNamespace + "/encoder_current";
+String rosNameEncoderCommand    = rosNamespace + "/encoder_command";
+String rosNameLimitSwitchEvent  = rosNamespace + "/limit_switch_event";
+String rosNameStatus            = rosNamespace + "/status";
+String rosNameGetStatus         = rosNamespace + "/get_status";
+String rosNameEncoderZeroSingle = rosNamespace + "/encoder_zero_single";
+String rosNameEncoderZeroAll    = rosNamespace + "/encoder_zero_all";
+String rosNameEnableMotor       = rosNamespace + "/enable_motor";
+String rosNameEnableAllMotors   = rosNamespace + "/enable_all_motors";
+String rosNameSetGains          = rosNamespace + "/set_gains";
+String rosNameEnableRosControl  = rosNamespace + "/enable_ros_control";
+    
 medlab_motor_control_board::McbEncoderCurrent msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 medlab_motor_control_board::McbStatus msgStatus; // stores MCB status message
 medlab_motor_control_board::EnableMotor msgLimitSwitchEvent; // stores message that is sent whenever a limit switch is triggered
-ros::Publisher pubEncoderCurrent("tempname", &msgEncoderCurrent); // publishes current motor positions
-ros::Publisher pubStatus("tempname", &msgStatus); // publishes MCB status
-ros::Publisher pubLimitSwitchEvent("tempname", &msgLimitSwitchEvent); // publishes each time a limit switch is triggered
-ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tempname", &subEnableMotorCallback); // enables or disables power to a specific motor
-ros::Subscriber<std_msgs::Bool>                          subEnableAllMotors("tempname", &subEnableAllMotorsCallback); // enables or disables all motors
-ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tempname", &subSetGainsCallback); // sets gains for a specific motor
-ros::Subscriber<medlab_motor_control_board::McbEncoders> subEncoderCommand("tempname", &subEncoderCommandCallback); // receives motor commands
-ros::Subscriber<std_msgs::UInt8>                         subEncoderZeroSingle("tempname", &subEncoderZeroSingleCallback); // resets a single encoder to zero
-ros::Subscriber<std_msgs::Empty>                         subEncoderZeroAll("tempname", &subEncoderZeroAllCallback); // resets all encoders to zero
-ros::Subscriber<std_msgs::Bool>                          subEnableRosControl("tempname", &subEnableRosControlCallback); // used to move between RosIdle and RosControl states
-ros::Subscriber<std_msgs::Empty>                         subGetStatus("tempname", &subGetStatusCallback); // tells MCB to publish pubStatus
+ros::Publisher pubEncoderCurrent("tmp", &msgEncoderCurrent); // publishes current motor positions
+ros::Publisher pubStatus("tmp", &msgStatus); // publishes MCB status
+ros::Publisher pubLimitSwitchEvent("tmp", &msgLimitSwitchEvent); // publishes each time a limit switch is triggered
+ros::Subscriber<medlab_motor_control_board::EnableMotor> subEnableMotor("tmp", &subEnableMotorCallback); // enables or disables power to a specific motor
+ros::Subscriber<std_msgs::Bool>                          subEnableAllMotors("tmp", &subEnableAllMotorsCallback); // enables or disables all motors
+ros::Subscriber<medlab_motor_control_board::McbGains>    subSetGains("tmp", &subSetGainsCallback); // sets gains for a specific motor
+ros::Subscriber<medlab_motor_control_board::McbEncoders> subEncoderCommand("tmp", &subEncoderCommandCallback); // receives motor commands
+ros::Subscriber<std_msgs::UInt8>                         subEncoderZeroSingle("tmp", &subEncoderZeroSingleCallback); // resets a single encoder to zero
+ros::Subscriber<std_msgs::Empty>                         subEncoderZeroAll("tmp", &subEncoderZeroAllCallback); // resets all encoders to zero
+ros::Subscriber<std_msgs::Bool>                          subEnableRosControl("tmp", &subEnableRosControlCallback); // used to move between RosIdle and RosControl states
+ros::Subscriber<std_msgs::Empty>                         subGetStatus("tmp", &subGetStatusCallback); // tells MCB to publish pubStatus
 
 IntervalTimer timerRos; // ROS timer interrupt
 volatile bool timerRosFlag = false; // indicates timerRos has been called
@@ -66,7 +78,8 @@ volatile bool timerPidFlag = false; // indicates timerPid has been called
 //int32_t countDesired[6]; // does this need to be volatile?
 float frequencyPid = 1000.0; // [Hz]
 uint32_t timeStepPid = uint32_t(1000000.0 / frequencyPid); // [us]
-float kp = 0.0004, ki = 0.000002, kd = 0.01; // work ok for 1 kHz, EC13 brushless motor
+//float kp = 0.0004, ki = 0.000002, kd = 0.01; // work ok for 1 kHz, EC13 brushless motor
+float kp = 0.0003, ki = 0.000001, kd = 0.02; // work ok for 1 kHz, EC13 brushless motor
 //float kp = 0.0010, ki = 0.000003, kd = 0.035; // work ok for 1 kHz, RE25 brushed motor
 // float kp = 0.0002, ki = 0.000001, kd = 0.01; // work ok for 2 kHz
 
@@ -171,20 +184,17 @@ MCBstate RosInit()
     ROSenable = false;
 
     // set up topics
-    rosNameEncoderCurrent = rosNamespace + rosNameEncoderCurrent;
-    //pubEncoderCurrent = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
-    pubEncoderCurrent     = ros::Publisher("encoder_current", &msgEncoderCurrent);
-    pubLimitSwitchEvent   = ros::Publisher("limit_switch_event", &msgLimitSwitchEvent);
-    pubStatus             = ros::Publisher("status", &msgStatus);
-    subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>("encoder_command", &subEncoderCommandCallback);
-    subEncoderZeroSingle  = ros::Subscriber<std_msgs::UInt8>("encoder_zero_single", &subEncoderZeroSingleCallback);
-    subEncoderZeroAll     = ros::Subscriber<std_msgs::Empty>("encoder_zero_all", &subEncoderZeroAllCallback);
-    subEnableMotor        = ros::Subscriber<medlab_motor_control_board::EnableMotor>("enable_motor", &subEnableMotorCallback);
-    subEnableAllMotors    = ros::Subscriber<std_msgs::Bool>("enable_all_motors", &subEnableAllMotorsCallback);
-    subSetGains           = ros::Subscriber<medlab_motor_control_board::McbGains>("set_gains", &subSetGainsCallback);
-    subEnableRosControl   = ros::Subscriber<std_msgs::Bool>("enable_ros_control", &subEnableRosControlCallback);
-    subGetStatus          = ros::Subscriber<std_msgs::Empty>("get_status", &subGetStatusCallback);
-
+    pubEncoderCurrent     = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
+    subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>(rosNameEncoderCommand.c_str(), &subEncoderCommandCallback);
+    pubLimitSwitchEvent   = ros::Publisher(rosNameLimitSwitchEvent.c_str(), &msgLimitSwitchEvent);
+    pubStatus             = ros::Publisher(rosNameStatus.c_str(), &msgStatus);
+    subGetStatus          = ros::Subscriber<std_msgs::Empty>(rosNameGetStatus.c_str(), &subGetStatusCallback);
+    subEncoderZeroAll     = ros::Subscriber<std_msgs::Empty>(rosNameEncoderZeroAll.c_str(), &subEncoderZeroAllCallback);
+    subEncoderZeroSingle  = ros::Subscriber<std_msgs::UInt8>(rosNameEncoderZeroSingle.c_str(), &subEncoderZeroSingleCallback);
+    subEnableMotor        = ros::Subscriber<medlab_motor_control_board::EnableMotor>(rosNameEnableMotor.c_str(), &subEnableMotorCallback);
+    subEnableAllMotors    = ros::Subscriber<std_msgs::Bool>(rosNameEnableAllMotors.c_str(), &subEnableAllMotorsCallback);
+    subSetGains           = ros::Subscriber<medlab_motor_control_board::McbGains>(rosNameSetGains.c_str(), &subSetGainsCallback);
+    subEnableRosControl   = ros::Subscriber<std_msgs::Bool>(rosNameEnableRosControl.c_str(), &subEnableRosControlCallback);
 
 	// set up Wiznet and connect to ROS server
 	Serial.print(F("Configuring Ethernet Connection ... "));
@@ -577,7 +587,7 @@ MCBstate ManualControl()
         if (MotorBoard.ampEnableFlag()) {
             uint8_t device = MotorBoard.updateAmpStates(); // module triggered indicated by green LED
 
-            if (device == 6) {
+            if (device == 7) {
                 Serial.println(F("\nE-Stop Engaged! \nExiting Manual Control State"));
 
                 // stop timers and disable amps
@@ -844,8 +854,8 @@ void runManualControl(void)
 			delayMicroseconds(400000); // wait for human's slow reaction time
 			MotorBoard.readButtons();
 		}
-		
-        MotorBoard.enableAmp(currentMotorSelected);
+		MotorBoard.globalEnable(true);  
+    MotorBoard.enableAmp(currentMotorSelected);
 	}
 	else if (MotorBoard.isUpPressed()) {
         MotorBoard.setCountDesired(currentMotorSelected, MotorBoard.getCountDesired(currentMotorSelected) + countStepManualControl);
@@ -855,8 +865,8 @@ void runManualControl(void)
 	}
 }
 
-char* MCBstateToString(MCBstate currentState) {
-    char* stateName;
+const char* MCBstateToString(MCBstate currentState) {
+    const char* stateName;
 
     switch (currentState)
     {
