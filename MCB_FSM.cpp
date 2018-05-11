@@ -37,19 +37,17 @@ uint32_t countStepManualControl = 25; // [counts] step size for each up/down but
 
 // ROS
 ros::NodeHandle_<WiznetHardware> nh;
-//String rosNamespace = "configure_me_over_serial";
-String rosNamespace = "MCB2";
-String rosNameEncoderCurrent    = rosNamespace + "/encoder_current";
-String rosNameEncoderCommand    = rosNamespace + "/encoder_command";
-String rosNameLimitSwitchEvent  = rosNamespace + "/limit_switch_event";
-String rosNameStatus            = rosNamespace + "/status";
-String rosNameGetStatus         = rosNamespace + "/get_status";
-String rosNameEncoderZeroSingle = rosNamespace + "/encoder_zero_single";
-String rosNameEncoderZeroAll    = rosNamespace + "/encoder_zero_all";
-String rosNameEnableMotor       = rosNamespace + "/enable_motor";
-String rosNameEnableAllMotors   = rosNamespace + "/enable_all_motors";
-String rosNameSetGains          = rosNamespace + "/set_gains";
-String rosNameEnableRosControl  = rosNamespace + "/enable_ros_control";
+String rosNameEncoderCurrent;
+String rosNameEncoderCommand;
+String rosNameLimitSwitchEvent;
+String rosNameStatus;
+String rosNameGetStatus;
+String rosNameEncoderZeroSingle;
+String rosNameEncoderZeroAll;
+String rosNameEnableMotor;
+String rosNameEnableAllMotors;
+String rosNameSetGains;
+String rosNameEnableRosControl;
     
 medlab_motor_control_board::McbEncoderCurrent msgEncoderCurrent; // stores most recent encoder counts to be sent via publisher
 medlab_motor_control_board::McbStatus msgStatus; // stores MCB status message
@@ -173,7 +171,7 @@ MCBstate PowerUP(void)
 	}
 }
 
-MCBstate RosInit()
+MCBstate RosInit(void)
 {
 	stateCurrent = stateRosInit;
 
@@ -183,7 +181,35 @@ MCBstate RosInit()
 
     ROSenable = false;
 
-    // set up topics
+    // read ROS configuration parameters from EEPROM
+    rosConfig.getSettingsFromEeprom();
+
+    // set to defaults if none found
+    if (!rosConfig.wasSaved()) {
+        rosConfig.setDefaults();
+    }
+
+    // update ROS node handle with the new config parameters
+    IPAddress mcbIp(192, 168, 0, rosConfig.getIP());
+    nh.getHardware()->setIP(mcbIp);
+    uint8_t mcbMac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, rosConfig.getMac() };
+    nh.getHardware()->setMAC(mcbMac);
+
+    // create topic names
+    String rosNamespace = rosConfig.getNamespace();
+    rosNameEncoderCurrent = rosNamespace + "/encoder_current";
+    rosNameEncoderCommand = rosNamespace + "/encoder_command";
+    rosNameLimitSwitchEvent = rosNamespace + "/limit_switch_event";
+    rosNameStatus = rosNamespace + "/status";
+    rosNameGetStatus = rosNamespace + "/get_status";
+    rosNameEncoderZeroSingle = rosNamespace + "/encoder_zero_single";
+    rosNameEncoderZeroAll = rosNamespace + "/encoder_zero_all";
+    rosNameEnableMotor = rosNamespace + "/enable_motor";
+    rosNameEnableAllMotors = rosNamespace + "/enable_all_motors";
+    rosNameSetGains = rosNamespace + "/set_gains";
+    rosNameEnableRosControl = rosNamespace + "/enable_ros_control";
+
+    // setup topics
     pubEncoderCurrent     = ros::Publisher(rosNameEncoderCurrent.c_str(), &msgEncoderCurrent);
     subEncoderCommand     = ros::Subscriber<medlab_motor_control_board::McbEncoders>(rosNameEncoderCommand.c_str(), &subEncoderCommandCallback);
     pubLimitSwitchEvent   = ros::Publisher(rosNameLimitSwitchEvent.c_str(), &msgLimitSwitchEvent);
@@ -263,7 +289,7 @@ MCBstate RosInit()
 	}
 }
 
-MCBstate RosIdle()
+MCBstate RosIdle(void)
 {
 	stateCurrent = stateRosIdle;
 
@@ -329,7 +355,7 @@ MCBstate RosIdle()
 	}
 }
 
-MCBstate RosControl()
+MCBstate RosControl(void)
 {
 	stateCurrent = stateRosControl;
 
@@ -467,15 +493,15 @@ MCBstate ManualIdle(void)
     bool configFinished = false;
 
     // wait until gains have been set via serial OR user overrides by holding buttons
-    //Serial.println(F("\nROS Configuration"));
-    //rosConfig.printMenu();
-    //rosConfig.printWaitCommand();
+    Serial.println(F("\nROS Configuration"));
+    rosConfig.printMenu();
+    rosConfig.printWaitCommand();
     while ((modeState == Manual) && !configFinished) {
         // check for serial commands
-        //if (!rosConfig.runOnce()) {
-        //    // user has selected an exit command
-        //    configFinished = true;
-        //}
+        if (!rosConfig.runOnce()) {
+            // user has selected an exit command
+            configFinished = true;
+        }
 
         // check buttons
         if (timeButtonsPressed < holdTime)
@@ -549,7 +575,7 @@ MCBstate ManualIdle(void)
     }
 }
 
-MCBstate ManualControl()
+MCBstate ManualControl(void)
 {
     stateCurrent = stateManualControl;
 
