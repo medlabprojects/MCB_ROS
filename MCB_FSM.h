@@ -41,7 +41,7 @@ void ampEnableISR(void); // ISR for MCP23008 interrupt that is triggered wheneve
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };
-char* MCBstateToString(MCBstate currentState);
+const char* MCBstateToString(MCBstate currentState);
 MCBstate PowerUP(void);
 MCBstate ManualIdle(void);
 MCBstate ManualControl(void);
