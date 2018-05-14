@@ -12,7 +12,8 @@ public:
         Serial.setTimeout(100);
     }
 
-    void run(void) { // !! NOTE: THIS IS A BLOCKING FUNCTION !!
+    // !! NOTE: THIS IS A BLOCKING FUNCTION !!
+    void run(void) { 
         bool exit = false;
 
         Serial.println(F("\nROS Configuration"));
@@ -157,7 +158,8 @@ public:
         }
     }
 
-    bool runOnce(void) { // Non-Blocking; returns false when user selects 's' or 'x'
+    // Non-Blocking; returns false when user selects 's' or 'x'
+    bool runOnce(void) { 
         bool keepRunning = true;
 
         // check for serial commands
@@ -179,7 +181,7 @@ public:
             case 'e':
             case 'E':
                 // read current settings from EEPROM
-                EEPROM.get(eepromAddr_, mcbRosSettings_);
+                getSettingsFromEeprom();
 
                 if (mcbRosSettings_.saveFlag == eeprom) {
                     ipSet = true;
@@ -297,9 +299,30 @@ public:
         return keepRunning;
     }
 
+    // read current settings from EEPROM
     void getSettingsFromEeprom(void) {
-        // read current settings from EEPROM
+        
         EEPROM.get(eepromAddr_, mcbRosSettings_);
+    }
+
+    // sets mcbRosSettings_ to defaults; does NOT write to EEPROM
+    void setDefaults(void) {
+        mcbRosSettings_.saveFlag = unsaved;
+
+        // namespace
+        String desiredName = "configure_me_over_serial";
+        rosNamespaceSet = true;
+        char zeros[25] = { 0 };
+        memcpy(mcbRosSettings_.rosNamespace, zeros, 25); // reset name to zeros
+        memcpy(mcbRosSettings_.rosNamespace, desiredName.c_str(), desiredName.length());
+
+        // IP
+        ipSet = true;
+        mcbRosSettings_.ip = 40;
+
+        // MAC
+        macSet = true;
+        mcbRosSettings_.mac = 0xED;
     }
 
     String getNamespace(void) {

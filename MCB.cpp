@@ -28,7 +28,7 @@ int MCB::init(void)
 	
 	// initialize encoder clock used by all LS7366R 
 	si5351_.init(SI5351_CRYSTAL_LOAD_8PF, 0);
-	si5351_.set_freq(2000000000ULL, 0ULL, SI5351_CLK0); // [hundreths of Hz] Set CLK1 to output 20 MHz (max frequency when LS7366R Vdd = 3.3V)
+	si5351_.set_freq(100000000ULL, 0ULL, SI5351_CLK0); // [hundreths of Hz] Set CLK0 to output 1 MHz
 	si5351_.output_enable(SI5351_CLK1, 0); // Disable other clocks
 	si5351_.output_enable(SI5351_CLK2, 0);
 	
@@ -315,7 +315,7 @@ bool MCB::globalEnable(bool enable)
     // setting output LOW => Enabled
     // setting output HIGH => Disabled
     // Thus: output = !enable
-    pins.i2cPins.digitalWrite(pins.i2cEnableGlobal, !enable);
+    digitalWrite(pins.enableGlobal, !enable);
 
     return result;
 }

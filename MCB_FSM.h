@@ -32,7 +32,7 @@ Changelog-
 #include <medlab_motor_control_board/McbGains.h>
 #include <medlab_motor_control_board/McbStatus.h>
 
-#define MCB_VERSION 0.9
+#define MCB_VERSION 1.4
 
 // Motor Control Board
 void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
@@ -41,7 +41,7 @@ void ampEnableISR(void); // ISR for MCP23008 interrupt that is triggered wheneve
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };
-char* MCBstateToString(MCBstate currentState);
+const char* MCBstateToString(MCBstate currentState);
 MCBstate PowerUP(void);
 MCBstate ManualIdle(void);
 MCBstate ManualControl(void);
