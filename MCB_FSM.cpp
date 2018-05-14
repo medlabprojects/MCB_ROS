@@ -228,7 +228,7 @@ MCBstate RosInit(void)
 
 	// repeatedly attempt to setup the hardware, loop on fail, stop on success
 	while ((nh.getHardware()->error() < 0) && (modeState == Ros)) {
-		Serial.print(F("WIZnet eror = "));
+		Serial.print(F("WIZnet error = "));
 		Serial.println(nh.getHardware()->error());
 
 		nh.initNode();
