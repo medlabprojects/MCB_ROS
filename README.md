@@ -89,7 +89,42 @@ rosrun rosserial_arduino make_libraries.py .
    *Hint: if there are errors during compilation, you can get more information by turning on verbose output. File -> Preferences -> Settings -> Show verbose output during: compilation*
 
 ### ESCON Configuration
+Maxon's ESCON line of servo controllers have many nice features and can provide a lot of power in a small form-factor. A daughterboard has been designed for the [ESCON Module 50/5](https://www.maxonmotorusa.com/maxon/view/product/control/4-Q-Servokontroller/438725). It can drive brushed or brushless motors up to 250W. Configuration will depend on the specific motor used, but is a simple procedure done over USB.
 
+1. Download and install the [ESCON Studio](https://www.maxonmotorusa.com/maxon/view/content/ESCON-Detailsite) software
+   - Download button is at the bottom of the page or use [direct download link](https://www.maxonmotorusa.com/medias/sys_master/root/8825156173854/ESCON-Setup.zip)
+2. Open ESCON Studio and connect the module via USB
+3. If you already have a configuration file for you motor (e.g. *Configuration_EC13_2018-05-22.edc*) you can use that and skip the remaining steps
+   - File -> Download Parameters
+   - Select the .edc file for your motor
+   - Wait for the parameters to be loaded and confirm on the 'Controller Monitor' window that they are correct
+   - Disconnect USB cable to finish
+4. Otherwise, locate the datasheet for your motor
+5. Open the ESCON Studio 'Startup Wizard'
+   - Tools -> Startup Wizard
+6. Step through the wizard, making sure the parameters match the motor datasheet. **The critical paramaters to ensure compatibility with the MCB are the following:**
+   - Mode of Operation -> *Current Controller*
+   - Enable Functionality -> *Enable* -> *Digital Input 2* -> *High active*
+   - Set Value -> *Analog Set Value* -> *Analog Input 1*
+      - Current at -> *0.0 V* : *0.0 A*
+      - Current at -> *10.0 V* : *max desired current for your motor*
+   - Offset -> *Fixed Offset* -> *0.0 A*
+   - Digital Inputs & Outputs
+      - Digital Input 1 -> *None*
+      - Digital Input 2 -> *Enable*
+      - Digital Output 3 -> *Ready*
+      - Digital I/O 4 -> *None*
+   - Analog Inputs
+      - Analog Input 1 -> *Set Value*
+      - Analog Input 2 -> *None*
+      - Potentiometer 1 -> *None*
+   - Analog Outputs -> *None* for all
+   - Digital Output 3 -> Polarity -> *High active*
+7. Once finished with Startup Wizard, click Finish
+8. If you need to configure multiple modules for the same type of motor, you can save this configuration
+   - File -> Upload Parameters -> Type filename and save the .edc file somewhere
+   - Follow steps 2 & 3 for the remaining modules
+      
 ### MCB Serial Configuration
 Before we can connect to the ROS Master, we must first set a few parameters to make each MCB unique. This will prevent any conflicts/issues with other devices on the network. Once set, they are stored in the Teensy's builtin EEPROM. This is non-volatile memory and does not get reset after powerdown. Once set, the MCB will retrive the last settings from memory upon startup.
 
