@@ -1,10 +1,10 @@
 # MCB_ROS
 
-Teensy firmware for closed-loop motor control over Ethernet using ROS
+**Teensy firmware for closed-loop motor control over Ethernet using ROS**
 
-## Getting Started
+# Getting Started
 
-Follow these steps to setup the toolchain for compiling and uploading firmare to the Teensy.
+**Follow these steps to setup the toolchain for compiling and uploading firmare to the Teensy.**
 
 ### Prerequisites
 - [Teensy 3.2](https://www.pjrc.com/store/teensy32.html)
@@ -152,12 +152,13 @@ Before we can connect to the ROS Master, we must first set a few parameters to m
    - Type 's' into the terminal and press enter
 10. You are now done and may resume operation as usual
 
-## How to Use
+# How to Use
 
-There are two ways you can use the MCB to drive your motors: manually (using buttons on the motherboard) or via ROS (over ethernet).
+There are two ways you can use the MCB to drive your motors: *manually* (using buttons on the motherboard) or via *ROS* (over ethernet).
 
-### Manual Control
-Manual Control is a good way to verify everything has been connected and configured correctly. It allows you to indivually select and jog motors. This mode is also useful for quickly moving your robot to a desired pose without requiring an external connection to a computer. Only power is necessary, no USB or ethernet.
+### Initial Powerup
+
+Follow these steps when powering a newly assembled MCB for the first time.
 
 1. If you haven't already, go through the Getting Started guide found above
 2. Connect at least one motor via a daughterboard
@@ -176,26 +177,74 @@ Manual Control is a good way to verify everything has been connected and configu
    - Once you have tested for shorts, you can increase the current limit to whatever is reasonable for your motor
 5. Upon powerup, the MCB will go through a brief initialization sequence where it will detect how many daughterboards are connected and configure all the ICs
    - Any errors during initialization are reported over the USB serial connection
-6. Set the mode switch on the motherboard to 'MANUAL'
-7. It is now in an idle state, waiting for user input
+
+### Manual Control
+Manual Control is a good way to verify everything has been connected and configured correctly. It allows you to indivually select and jog motors. This mode is also useful for quickly moving your robot to a desired pose without requiring an external connection to a computer. Only power is necessary, no USB or ethernet.
+
+1. Assuming you have completed the Initial Powerup steps above, connect your motor(s)/daughterboard(s) and then turn on power
+2. Set the mode switch on the motherboard to 'MANUAL'
+3. It is now in an idle state, waiting for user input
    - All amps are disabled (i.e. motors are not powered)
-8. Enter into the Manual Control state
+4. Enter into the Manual Control state
    - Simultaneously press and hold all three capacitive buttons on the motherboard (Up/Down/Menu)
    - The green LEDs under each daughterboard will light in succession
    - Hold until all six have been lit and they begin flashing together, then release
    - The green LED for Motor 0 should now be flashing to indicate that it is selected, while its red LED indicates that it is powered
-9. Use the Up/Down buttons to jog the motor
+5. Use the Up/Down buttons to jog the motor
    - ***CAUTION:*** jog speed is dependent on the encoder resolution and any gearhead/gear reduction
       - This can be changed by editing MCB_FSM.cpp and changing the countStepManualControl variable (currently line 36)
       - Be sure to recompile and upload after modifying
-10. Select a different motor by holding the Menu button and then pressing/holding Up or Down
+6. Select a different motor by holding the Menu button and then pressing/holding Up or Down
    - All amps are disabled while menu button is held
    - Once menu is released, the selected motor will be enabled and powered
-11. If a limit switch is triggered, the motor will be automatically disabled
+7. If a limit switch is triggered, the motor will be automatically disabled
    - You can reset it by brielfy pressing/releasing the Menu button
-12. When finished, you have two option for disabling power to all motors:
+8. When finished, you have two option for disabling power to all motors:
    - Disconnect/turn off main power input
    - Toggle the Mode switch to ROS and then back to Manual (putting it back in the Manual Idle state)
+
+### ROS Control
+ROS control requires an ethernet connection to a machine running the [rosserial_server](http://wiki.ros.org/rosserial_server) node. The MCB can then be controlled via it's topics (e.g. /encoder_command) using either a custom node or the command line. These steps will demonstrate basic operation using ROS. A full description of each topic can be found in the ROS Topics section below.
+
+1. Assuming you have completed the Initial Powerup steps above, connect your motor(s)/daughterboard(s) *and ethernet cable* and then turn on power
+   - It can be helpful to use the USB serial connection to receive status/error messages
+2. Set the mode switch on the motherboard to 'ROS'
+   - It will now initialize the WIZnet ethernet board and attempt to connect to a rosserial_server node
+3. On your ROS machine, open a terminal and start the rosserial_server node
+   ```
+   roslaunch rosserial_server socket.launch*'
+   ```
+   - After a few seconds, you should see (in the terminal window and serial monitor) that a connection has been established
+   - If it cannot connect to ROS, ping the MCB to verify that it is visible on the network
+      ```
+      ping 192.168.0.XX
+      ```
+4. Verify proper connection by checking that MCB topics are available (e.g. '*namespace*/encoder_command')
+   ```
+   rostopic list
+   ```
+5. The MCB is now in the ROS Idle state and awaiting commands
+   - All amps are disabled (i.e. motors are not powered)
+6. Enter the ROS Control state by publishing to /enable_ros_control topic
+   ```
+   rostopic pub -1 /namespace/enable_ros_control std_msgs/Bool 1
+   ```
+7. All motors are disabled by default when first entering ROS Control state
+   - Enable a single motor: `rostopic pub -1 /namespace/enable_motor medlab_motor_control_board/EnableMotor XXXXXX`
+   - Enable all motors: `rostopic pub -1 /namespace/enable_all_motors std_msgs/Bool 1`
+   - Red LEDs indicate which motors are enabled
+8. We can move a motor by sending a new encoder position to the /encoder_command topic
+
+# ROS Topics
+Each topic name will be preceded by the namespace you chose during the 'MCB Serial Configuration' section above. Thus, you must include that namespace when pubishing to the following topics (e.g. '/*MCB1*/encoder_command').
+
+| Topic Name | Input (*to MCB*) or Output (*from MCB*) | Description | Message Type | Example |
+| ---------- | --------------------------------------- | ----------- | ------------ | ------- |
+| **/status** | Output | Receives information about current MCB status | medlab_motor_control_board::McbStatus | `rostopic echo namespace/status` |
+| **/get_status** | Input | Requests a new update from the /status topic | std_msgs::Empty | `rostopic pub -1 /namespace/get_status std_msgs/Empty` |
+
+
+### /get_status
 
 ## Author
 **Trevor Bruns**
