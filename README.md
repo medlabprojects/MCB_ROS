@@ -10,6 +10,7 @@ Follow these steps to setup the toolchain for compiling and uploading firmare to
 - [Teensy 3.2](https://www.pjrc.com/store/teensy32.html)
 - WIZnet ethernet module ([WIZ820io](http://www.wiznet.co.kr/product-item/wiz820io/) or [WIZ850io](http://www.wiznet.co.kr/product-item/wiz850io/)) and [adapter board](https://www.pjrc.com/store/wiz820_sd_adaptor.html) (Rev 2) for Teensy
 - Fully assembled Motor Control Board (current version: 1.4) and at least one daughterboard
+- Motor amp (e.g. Maxon ESCON module 50/5)
 - Micro-USB to USB cable
 - A ROS workstation with [Kinetic](http://wiki.ros.org/kinetic/Installation) installed
    - Note: not required to be the same machine you will be setting up for programming the Teensy
@@ -87,7 +88,37 @@ rosrun rosserial_arduino make_libraries.py .
 
    *Hint: if there are errors during compilation, you can get more information by turning on verbose output. File -> Preferences -> Settings -> Show verbose output during: compilation*
 
+### ESCON Configuration
+
+### MCB Serial Configuration
+Before we can connect to the ROS Master, we must first set a few parameters to make each MCB unique. This will prevent any conflicts/issues with other devices on the network. Once set, they are stored in the Teensy's builtin EEPROM. This is non-volatile memory and does not get reset after powerdown. Once set, the MCB will retrive the last settings from memory upon startup.
+
+1. Open a serial terminal program (e.g. 'Serial Monitor' in the Arduino IDE)
+2. Ensure MCB is powered down
+   - No external power to screw terminals
+   - No USB cable connected
+3. Connect USB cable to the Teensy on the MCB and open/start the serial connection
+4. Move the Mode switch on the motherboard from ROS to Manual
+   - If it was already on Manual, toggle it to ROS and then back again to reset the state machine
+   - You should now see the serial configuration instructions in your serial terminal
+5. Set a unique namespace for this MCB. Its ROS topics will apear under this label (e.g. "*namespace*/encoder_command").
+   - Type 'n' into the terminal and press enter
+   - Type you desired namespace (NO punctuation or spaces!) and press enter
+6. Set a unique IP address for this MCB
+   - Type 'i' into the terminal and press enter
+   - Type the last octet of your desired IP (e.g. '*40*' will yield 192.168.0.*40*) and press enter
+7. Set a unique MAC address for this MCB
+   - Type 'm' into the terminal and press enter
+   - Type the last octet of your desired MAC (e.g. '*ED*' will yield DE:AD:BE:EF:FE:*ED*) and press enter
+8. Review our new settings
+   - Type 'c' into the terminal and press enter
+   - Confirm the settings are correct
+9. Save the new settings into the EEPROM
+   - Type 's' into the terminal and press enter
+10. You are now done and may resume operation as usual
+
 ## How to Use
+### Serial
 
 
 ## Author
