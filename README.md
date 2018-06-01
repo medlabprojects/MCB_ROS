@@ -242,9 +242,15 @@ Each topic name will be preceded by the namespace you chose during the 'MCB Seri
 | ---------- | --------------------------------------- | ----------- | ------------ | ------- |
 | **/status** | Output | Receives information about current MCB status | medlab_motor_control_board::McbStatus | `rostopic echo namespace/status` |
 | **/get_status** | Input | Requests a new update from the /status topic | std_msgs::Empty | `rostopic pub -1 /namespace/get_status std_msgs/Empty` |
-
-
-### /get_status
+| **/enable_ros_control** | Input | Enters/leaves ROS Control state | std_msgs::Bool | `rostopic pub -1 /namespace/enable_ros_control std_msgs/Bool 1` |
+| **/enable_motor** | Input | Enables/disables power for a single motor | medlab_motor_control_board::EnableMotor | `rostopic pub -1 /namespace/enable_motor medlab_motor_control_board/EnableMotor XXXXX` |
+| **/enable_all_motors** | Input | Enables/disables power for all motors | std_msgs::Bool | `rostopic pub -1 /namespace/enable_all_motors std_msgs/Bool 1` |
+| **/encoder_current** | Output | Receive the most recent encoder positions for all motors | medlab_motor_control_board::McbEncoders | `rostopic echo /namespace/encoder_current` |
+| **/encoder_command** | Input | Send desired encoder positions for all motors | medlab_motor_control_board::McbEncoders | `rostopic pub -1 /namespace/encoder_command medlab_motor_control_board/McbEncoders XXXX` |
+| **/limit_switch_event** | Output | Receive a message whenever a limit switch is triggered | medlab_motor_control_board::EnableMotor | `rostopic echo /namespace/limit_switch_event` |
+| **/encoder_zero_single** | Input | Resets a motor's current position to zero |
+| **/envoder_zero_all** | Input | Resets all motors current positions to zero |
+| **/set_gains** | Input | Sets new PID gain values for each motor |
 
 ## Author
 **Trevor Bruns**
