@@ -153,8 +153,49 @@ Before we can connect to the ROS Master, we must first set a few parameters to m
 10. You are now done and may resume operation as usual
 
 ## How to Use
-### Serial
 
+There are two ways you can use the MCB to drive your motors: manually (using buttons on the motherboard) or via ROS (over ethernet).
+
+### Manual Control
+Manual Control is a good way to verify everything has been connected and configured correctly. It allows you to indivually select and jog motors. This mode is also useful for quickly moving your robot to a desired pose without requiring an external connection to a computer. Only power is necessary, no USB or ethernet.
+
+1. If you haven't already, go through the Getting Started guide found above
+2. Connect at least one motor via a daughterboard
+   - Ensure daughterboards are plugged in consecutively (i.e. starting at M0 with no gaps)
+3. You must connect a normally-closed switch to the 'E-STOP' pins on the motherboard
+   - Any break in the connection will disable all amps and return the MCB to an idle state
+4. Power on the MCB via the screw terminals (USB will only power the Teensy, not the amps)
+   - Verify that polarity matches the labels on the motherboard (positive terminal is closest to the edge)
+      - Versions 1.4 and up include reverse polarity protection
+   - It is recommended to use a current-limited power supply, especially when powering on for the first time after assembly
+   - Start with the limit set to ~100-200 mA
+   - If the MCB is trying to draw more current, there is likely a short circuit somewhere
+      - You can verify this by disconnecting power and measuring resistance between each power rail (Vin/5V/3.3V) and ground
+   - There is a green LED near the screw terminals that indicates proper operation of the 5V regulator
+      - If this LED is not lit, check polarity of your input
+   - Once you have tested for shorts, you can increase the current limit to whatever is reasonable for your motor
+5. Upon powerup, the MCB will go through a brief initialization sequence where it will detect how many daughterboards are connected and configure all the ICs
+   - Any errors during initialization are reported over the USB serial connection
+6. Set the mode switch on the motherboard to 'MANUAL'
+7. It is now in an idle state, waiting for user input
+   - All amps are disabled (i.e. motors are not powered)
+8. Enter into the Manual Control state
+   - Simultaneously press and hold all three capacitive buttons on the motherboard (Up/Down/Menu)
+   - The green LEDs under each daughterboard will light in succession
+   - Hold until all six have been lit and they begin flashing together, then release
+   - The green LED for Motor 0 should now be flashing to indicate that it is selected, while its red LED indicates that it is powered
+9. Use the Up/Down buttons to jog the motor
+   - ***CAUTION:*** jog speed is dependent on the encoder resolution and any gearhead/gear reduction
+      - This can be changed by editing MCB_FSM.cpp and changing the countStepManualControl variable (currently line 36)
+      - Be sure to recompile and upload after modifying
+10. Select a different motor by holding the Menu button and then pressing/holding Up or Down
+   - All amps are disabled while menu button is held
+   - Once menu is released, the selected motor will be enabled and powered
+11. If a limit switch is triggered, the motor will be automatically disabled
+   - You can reset it by brielfy pressing/releasing the Menu button
+12. When finished, you have two option for disabling power to all motors:
+   - Disconnect/turn off main power input
+   - Toggle the Mode switch to ROS and then back to Manual (putting it back in the Manual Idle state)
 
 ## Author
 **Trevor Bruns**
