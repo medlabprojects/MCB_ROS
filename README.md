@@ -250,7 +250,7 @@ Each topic name will be preceded by the namespace you chose during the 'MCB Seri
 | **/limit_switch_event** | Output | Receive a message whenever a limit switch is triggered | medlab_motor_control_board::EnableMotor | `rostopic echo /namespace/limit_switch_event` |
 | **/encoder_zero_single** | Input | Resets a motor's current position to zero | std_msgs::UInt8 | `rostopic pub -1 /namespace/encoder_zero_single std_msgs/UInt8 3`
 | **/envoder_zero_all** | Input | Resets all motors current positions to zero | std_msgs::Empty | `rostopic pub -1 /namespace/encoder_zero_all std_msgs/Empty`
-| **/set_gains** | Input | Sets new PID gain values for each motor | medlab_motor_control_board::McbGains | `rostopic pub -1 /namespace/set_gains medlab_motor_control_board::McbGains `{motor: 1, p:0.1, i:0.0002, d:0.01}`
+| **/set_gains** | Input | Sets new PID gain values for each motor | medlab_motor_control_board::McbGains | `rostopic pub -1 /namespace/set_gains medlab_motor_control_board::McbGains '{motor: 1, p: 0.1, i: 0.0002, d: 0.01}'`
 
 ## Author
 **Trevor Bruns**
