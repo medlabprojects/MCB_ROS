@@ -212,7 +212,7 @@ ROS control requires an ethernet connection to a machine running the [rosserial_
    - It will now initialize the WIZnet ethernet board and attempt to connect to a rosserial_server node
 3. On your ROS machine, open a terminal and start the rosserial_server node
    ```
-   roslaunch rosserial_server socket.launch*'
+   roslaunch rosserial_server socket.launch
    ```
    - After a few seconds, you should see (in the terminal window and serial monitor) that a connection has been established
    - If it cannot connect to ROS, ping the MCB to verify that it is visible on the network
@@ -248,9 +248,9 @@ Each topic name will be preceded by the namespace you chose during the 'MCB Seri
 | **/encoder_current** | Output | Receive the most recent encoder positions for all motors | medlab_motor_control_board::McbEncoders | `rostopic echo /namespace/encoder_current` |
 | **/encoder_command** | Input | Send desired encoder positions for all motors | medlab_motor_control_board::McbEncoders | `rostopic pub -1 /namespace/encoder_command medlab_motor_control_board/McbEncoders XXXX` |
 | **/limit_switch_event** | Output | Receive a message whenever a limit switch is triggered | medlab_motor_control_board::EnableMotor | `rostopic echo /namespace/limit_switch_event` |
-| **/encoder_zero_single** | Input | Resets a motor's current position to zero |
-| **/envoder_zero_all** | Input | Resets all motors current positions to zero |
-| **/set_gains** | Input | Sets new PID gain values for each motor |
+| **/encoder_zero_single** | Input | Resets a motor's current position to zero | std_msgs::UInt8 | `rostopic pub -1 /namespace/encoder_zero_single std_msgs/UInt8 3`
+| **/envoder_zero_all** | Input | Resets all motors current positions to zero | std_msgs::Empty | `rostopic pub -1 /namespace/encoder_zero_all std_msgs/Empty`
+| **/set_gains** | Input | Sets new PID gain values for each motor | medlab_motor_control_board::McbGains | `rostopic pub -1 /namespace/set_gains medlab_motor_control_board::McbGains `{motor: 1, p:0.1, i:0.0002, d:0.01}`
 
 ## Author
 **Trevor Bruns**
