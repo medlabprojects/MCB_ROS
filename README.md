@@ -245,11 +245,11 @@ Each topic name will be preceded by the namespace you chose during the 'MCB Seri
 | **/enable_ros_control** | Input | Enters/leaves ROS Control state | std_msgs::Bool | `rostopic pub -1 /namespace/enable_ros_control std_msgs/Bool 1` |
 | **/enable_motor** | Input | Enables/disables power for a single motor | medlab_motor_control_board::EnableMotor | `rostopic pub -1 /namespace/enable_motor medlab_motor_control_board/EnableMotor XXXXX` |
 | **/enable_all_motors** | Input | Enables/disables power for all motors | std_msgs::Bool | `rostopic pub -1 /namespace/enable_all_motors std_msgs/Bool 1` |
-| **/encoder_current** | Output | Receive the most recent encoder positions for all motors | medlab_motor_control_board::McbEncoders | `rostopic echo /namespace/encoder_current` |
+| **/encoder_current** | Output | Receive the most recent encoder positions for all motors | medlab_motor_control_board::McbEncoderCurrent | `rostopic echo /namespace/encoder_current` |
 | **/encoder_command** | Input | Send desired encoder positions for all motors | medlab_motor_control_board::McbEncoders | `rostopic pub -1 /namespace/encoder_command medlab_motor_control_board/McbEncoders XXXX` |
 | **/limit_switch_event** | Output | Receive a message whenever a limit switch is triggered | medlab_motor_control_board::EnableMotor | `rostopic echo /namespace/limit_switch_event` |
 | **/encoder_zero_single** | Input | Resets a motor's current position to zero | std_msgs::UInt8 | `rostopic pub -1 /namespace/encoder_zero_single std_msgs/UInt8 3`
-| **/envoder_zero_all** | Input | Resets all motors current positions to zero | std_msgs::Empty | `rostopic pub -1 /namespace/encoder_zero_all std_msgs/Empty`
+| **/encoder_zero_all** | Input | Resets all motors current positions to zero | std_msgs::Empty | `rostopic pub -1 /namespace/encoder_zero_all std_msgs/Empty`
 | **/set_gains** | Input | Sets new PID gain values for each motor | medlab_motor_control_board::McbGains | `rostopic pub -1 /namespace/set_gains medlab_motor_control_board::McbGains '{motor: 1, p: 0.1, i: 0.0002, d: 0.01}'`
 
 ## Author
