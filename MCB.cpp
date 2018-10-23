@@ -28,7 +28,7 @@ int MCB::init(void)
 	
 	// initialize encoder clock used by all LS7366R 
 	si5351_.init(SI5351_CRYSTAL_LOAD_8PF, 0);
-	si5351_.set_freq(100000000ULL, 0ULL, SI5351_CLK0); // [hundreths of Hz] Set CLK0 to output 1 MHz
+	si5351_.set_freq(50000000ULL, 0ULL, SI5351_CLK0); // [hundreths of Hz] Set CLK0 to output 500 kHz
 	si5351_.output_enable(SI5351_CLK1, 0); // Disable other clocks
 	si5351_.output_enable(SI5351_CLK2, 0);
 	
@@ -149,7 +149,6 @@ void MCB::addModule(uint8_t position)
 	modules_.push_back(MCBmodule(pins.csEnc[position])); // create new MCBmodule and add to storage vector
     moduleConfigured_.push_back(false);
 	moduleConfigured_.at(position) = modules_.at(position).init(); // initialize modules
-    //ampEnabled_.push_back(false);
 }
 
 uint8_t MCB::numModules(void)

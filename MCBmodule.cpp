@@ -4,14 +4,10 @@
 	
 	This class handles the control of an individual motor
 	
-	Designed for use with Teensy 3.1 and Motor Control Board (Rev 1.1)
+	Designed for use with Teensy 3.1 and Motor Control Board (Rev 1.1+)
 	
 	
-	Trevor Bruns
-	
-	Changelog-
-		2/10/2016: Initial Creation
-		3/13/2017: Compiles and appears to run successfully
+	Trevor Bruns		
 		
 //=========================================================================*/
 

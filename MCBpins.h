@@ -96,6 +96,7 @@ public:
 	// These pins are current as of Rev 1.4
     Adafruit_MCP23008 i2cPins; // extra GPIO available over I2C via MCP23008
     const uint8_t i2cBrakeHw = 0;  // i2cPin: connected to hardware brake switch
+    const uint8_t i2cExtra = 1;    // i2cPin: unused extra GPIO pin
     const uint8_t i2cEnableM5 = 2; // i2cPin: state of enable pin for motor 5 amp
     const uint8_t i2cEnableM4 = 3; // i2cPin: state of enable pin for motor 4 amp
     const uint8_t i2cEnableM3 = 4; // i2cPin: state of enable pin for motor 3 amp

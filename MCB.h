@@ -4,7 +4,7 @@
 	
 	This class handles the modules plugged into the motor controller board
 	
-	Designed for use with Teensy 3.1/3.2 and Motor Control Board (Rev 1.2)
+	Designed for use with Teensy 3.1/3.2 and Motor Control Board (Rev 1.2+)
 	
 	
 	Trevor Bruns
@@ -68,7 +68,7 @@ public:
     bool limitSwitchTriggeredFlag(void); // returns limitSwitchTriggeredFlag_
     void resetLimitSwitchTriggered(void); // resets limitSwitchTriggeredFlag_ and limitSwitchTriggered to false
     bool ampEnableFlag(void);
-    void setAmpEnableFlag(void); // ONLY to be used by ampEnableISR() to set ampEnableFlag_ true; only disabled by calling updateAmpStates()
+    void setAmpEnableFlag(void); // ONLY to be used by ampEnableISR() to set ampEnableFlag_ true; flag is only disabled by calling updateAmpStates()
 
 	void setGains(uint8_t position, float kp, float ki, float kd); // sets PID gains for module located at [position] 
     FloatVec getGains(uint8_t position); // returns [kp, ki, kd] as float vector
