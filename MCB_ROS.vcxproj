@@ -107,7 +107,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties VM.DebugVariablesWindow.ColumnVisibleVariableValueHex="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMin="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMax="0" arduino.upload.port="COM9" />
+      <UserProperties VM.DebugVariablesWindow.ColumnVisibleVariableValueHex="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMin="0" VM.DebugVariablesWindow.ColumnVisibleVariableValueMax="0" arduino.upload.port="COM13" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>

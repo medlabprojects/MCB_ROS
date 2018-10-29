@@ -131,8 +131,8 @@ MCBstate PowerUP(void)
     Serial.println("********************************\n");
 	
     if (MotorBoard.init() == -1) {
-        Serial.println(F("\nERROR: INCORRECT MODULE CONFIGURATION"));
-        Serial.println(F("\nPower off and ensure there are no gaps between modules"));
+        printErrorMessage();
+        
         while (1) {
             MotorBoard.setLEDG(HIGH);
             delay(500);
@@ -146,10 +146,10 @@ MCBstate PowerUP(void)
     delay(10);
     
     // initialize limit switch states
-    MotorBoard.updateAmpStates();
+    //MotorBoard.updateAmpStates();
 
     // ensure amps are disabled
-    MotorBoard.disableAllAmps();
+    //MotorBoard.disableAllAmps();
 
 	// create pin change interrupt for mode switch
 	attachInterrupt(MotorBoard.pins.modeSelect, modeSwitchCallback, CHANGE);
@@ -300,7 +300,7 @@ MCBstate RosIdle(void)
 
     // ensure amps are off
     MotorBoard.disableAllAmps();
-    MotorBoard.globalEnable(false);
+    MotorBoard.setGlobalInhibit(true);
     MotorBoard.updateAmpStates();
 
     // start ROS update timer
@@ -374,8 +374,8 @@ MCBstate RosControl(void)
 	// start ROS update timer
 	timerRos.begin(timerRosCallback, timeStepRos);
 
-    // set global enable
-    MotorBoard.globalEnable(true);
+    // disable globalInhibit
+    MotorBoard.setGlobalInhibit(false);
     MotorBoard.updateAmpStates();
 
     //noInterrupts();
@@ -388,8 +388,8 @@ MCBstate RosControl(void)
     // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
         
         if (MotorBoard.ampEnableFlag()) {
-            // update current states of limit switches and ampEnable pins
-            uint8_t deviceTriggered = MotorBoard.updateAmpStates();
+            // update current states of limit switches and ampEnable pins, and determine what was triggered
+            std::vector<MCB::LimitSwitch> deviceTriggered = MotorBoard.updateAmpStates();
 
             // process limit switch event
             if (MotorBoard.limitSwitchTriggeredFlag()) {
@@ -413,6 +413,55 @@ MCBstate RosControl(void)
 
             // can reset now that we've processed events
             MotorBoard.resetLimitSwitchTriggered();
+        }
+
+        // process any triggered limit switches
+        if (MotorBoard.ampEnableFlag())
+        {
+            // update current states of limit switches and ampEnable pins, and determine what was triggered
+            if (MotorBoard.updateAmpStates())
+            {
+                for (uint8_t ii = 0; ii < MotorBoard.triggeredLimitSwitches().size(); ii++)
+                {
+                    if (MotorBoard.triggeredLimitSwitches().at(ii) == MCB::LimitSwitch::ESTOP)
+                    {   // e-stop was triggered
+
+                        Serial.println("\nE-Stop Engaged! \nExiting Manual Control State");
+
+                        // stop timers and disable amps
+                        timerManualControl.end();
+                        timerMotorSelectLed.end();
+                        timerPid.end();
+                        MotorBoard.disableAllAmps();
+
+                        // leave control state
+                        return stateManualIdle;
+                    }
+                    else
+                    {   // limit switch was triggered
+                        uint8_t modulePosition = MotorBoard.limitSwitchToPosition(MotorBoard.triggeredLimitSwitches().at(ii)); // convert MCB::LimitSwitch to uint8_t
+                        if (modulePosition <= MotorBoard.numModules()) {
+                            // ensure this motor this disabled
+                            MotorBoard.disableAmp(modulePosition);
+
+                            Serial.print("limit switch ");
+                            Serial.print(modulePosition);
+                            Serial.print(" triggered (switch is currently");
+                            if (MotorBoard.limitSwitchState(modulePosition)) {
+                                Serial.println("closed)");
+                            }
+                            else {
+                                Serial.println("open)");
+                            }
+
+                           
+                        }
+                    }
+                }
+
+                // reset now that we have processed
+                MotorBoard.resetTriggeredLimitSwitches();
+            }
         }
 
         noInterrupts(); // prevent interrupts during functions using SPI      
@@ -483,7 +532,7 @@ MCBstate ManualIdle(void)
 
     // ensure amps are off and controller is not running
     MotorBoard.disableAllAmps();
-    MotorBoard.globalEnable(false);
+    MotorBoard.setGlobalInhibit(true);
     timerPid.end();
 
     uint32_t holdTime = 2000; // [ms] how long buttons must be held before function returns
@@ -597,8 +646,9 @@ MCBstate ManualControl(void)
     // flash led of currently selected motor
     timerMotorSelectLed.begin(motorSelectLedCallback, 350000);
 
-    // set global enable for amps
-    MotorBoard.globalEnable(true);
+    // disable globalInhibit for amps
+    MotorBoard.setGlobalInhibit(false);
+    MotorBoard.updateAmpStates();
 
     // power on first motor
     MotorBoard.enableAmp(currentMotorSelected);
@@ -606,41 +656,52 @@ MCBstate ManualControl(void)
     MotorBoard.setLEDG(LOW);
 
     // keep running until mode switch changed to Ros OR serial command detected
-    while (modeState == Manual)
-    {
-        // NOTE: this while loop must be able to run at least twice as fast as the fastest InterruptTimer (usually timerPid)
+    while (modeState == Manual) // NOTE: this while loop must be able to run at least twice as fast as the fastest InterruptTimer (usually timerPid)
+    {  
+        // process any triggered limit switches
+        if (MotorBoard.ampEnableFlag()) 
+        {
+            // update current states of limit switches and ampEnable pins, and determine what was triggered
+            if (MotorBoard.updateAmpStates()) 
+            {
+                for (uint8_t ii = 0; ii < MotorBoard.triggeredLimitSwitches().size(); ii++) 
+                {
+                    if (MotorBoard.triggeredLimitSwitches().at(ii) == MCB::LimitSwitch::ESTOP) 
+                    {   // e-stop was triggered
+                        
+                        Serial.println("\nE-Stop Engaged! \nExiting Manual Control State");
 
-        if (MotorBoard.ampEnableFlag()) {
-            uint8_t device = MotorBoard.updateAmpStates(); // module triggered indicated by green LED
+                        // stop timers and disable amps
+                        timerManualControl.end();
+                        timerMotorSelectLed.end();
+                        timerPid.end();
+                        MotorBoard.disableAllAmps();
 
-            if (device == 7) {
-                Serial.println(F("\nE-Stop Engaged! \nExiting Manual Control State"));
+                        // leave control state
+                        return stateManualIdle; 
+                    }
+                    else 
+                    {   // limit switch was triggered
+                        uint8_t modulePosition = MotorBoard.limitSwitchToPosition(MotorBoard.triggeredLimitSwitches().at(ii)); // convert MCB::LimitSwitch to uint8_t
+                        if (modulePosition <= MotorBoard.numModules()) {
+                            Serial.print("limit switch ");
+                            Serial.print(modulePosition);
+                            Serial.print(" triggered (switch is currently");
+                            if (MotorBoard.limitSwitchState(modulePosition)) {
+                                Serial.println("closed)");
+                            }
+                            else {
+                                Serial.println("open)");
+                            }
 
-                // stop timers and disable amps
-                timerManualControl.end();
-                timerMotorSelectLed.end();
-                timerPid.end();
-                MotorBoard.disableAllAmps();
-
-                return stateManualIdle; // leave control state
-            }
-            else if (MotorBoard.limitSwitchTriggeredFlag()) {
-                // limit switch was triggered
-                Serial.print(F("limit switch "));
-                Serial.print(device);
-                Serial.print(F(" triggered (switch is "));
-                if (MotorBoard.limitSwitchState(device)) {
-                    Serial.println(F("closed)"));
+                            // disable this motor
+                            MotorBoard.disableAmp(modulePosition);
+                        }
+                    }
                 }
-                else {
-                    Serial.println(F("open)"));
-                }
 
-                // disable this motor
-                MotorBoard.disableAmp(device);
-
-                // reset limit switch flag
-                MotorBoard.resetLimitSwitchTriggered();
+                // reset now that we have processed
+                MotorBoard.resetTriggeredLimitSwitches();
             }
         }
         
@@ -652,30 +713,6 @@ MCBstate ManualControl(void)
 
             timerPidFlag = false;
         }
-
-        // check serial for commands
-        //if (Serial.available())
-        //{
-        //    char cmd = Serial.read();
-        //    if ((cmd == 'x') || (cmd == 'X'))  // 'stop' command
-        //    {
-        //        Serial.println("'Stop' command received");
-        //        // stop checking buttons
-        //        timerManualControl.end();
-        //        timerMotorSelectLed.end();
-
-        //        // power off motors and disable PID controller
-        //        MotorBoard.disableAllAmps();
-        //        timerPid.end();
-
-        //        // turn off green LEDs
-        //        MotorBoard.setLEDG(LOW);
-
-        //        // return to Manual Idle state to process command
-        //        return stateManualIdle;
-        //    }
-        //}
-
 
         // run manual control on a timer so a held button produces a constant velocity
         if (timerManualControlFlag) {
@@ -706,6 +743,34 @@ MCBstate ManualControl(void)
 void ampEnableISR(void)
 {
     MotorBoard.setAmpEnableFlag();
+}
+
+void printErrorMessage(void)
+{
+    switch (MotorBoard.getErrorCode())
+    {
+    case MCB::ErrorCode::NO_ERROR:
+        Serial.println("\nThere is currently no error :)");
+        break;
+
+    case MCB::ErrorCode::ESTOP_TRIGGERED:
+        Serial.println("\nERROR: E-STOP IS CURRENTLY TRIGGERED");
+        Serial.println("\nPower off, reset e-stop, then power back on");
+        break;
+
+    case MCB::ErrorCode::LIMIT_SWITCH_TRIGGERED_ON_STARTUP:
+        Serial.println("\nWARNING: A LIMIT SWITCH IS CURRENTLY TRIGGERED");
+        break;
+
+    case MCB::ErrorCode::WRONG_MODULE_ORDER:
+        Serial.println("\nERROR: INCORRECT MODULE CONFIGURATION");
+        Serial.println("\nPower off and ensure there are no gaps between daughterboard modules");
+        break;
+
+    default:
+        Serial.println("\nSomething might be wrong, but I'm not sure...");
+        break;
+    }
 }
 
 
@@ -765,7 +830,7 @@ void subEnableMotorCallback(const medlab_motor_control_board::EnableMotor & msg)
 
 void subEnableAllMotorsCallback(const std_msgs::Bool & msg)
 {
-    // MUST be in ROS Control state before enabling (otherwise globalEnable is still false)
+    // MUST be in ROS Control state before enabling
     if (stateCurrent != stateRosControl) {
         return;
     }
@@ -880,7 +945,7 @@ void runManualControl(void)
 			delayMicroseconds(400000); // wait for human's slow reaction time
 			MotorBoard.readButtons();
 		}
-		MotorBoard.globalEnable(true);  
+		MotorBoard.setGlobalInhibit(false); // ensure globalInhibit is false
     MotorBoard.enableAmp(currentMotorSelected);
 	}
 	else if (MotorBoard.isUpPressed()) {

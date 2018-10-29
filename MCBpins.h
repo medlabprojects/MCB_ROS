@@ -50,9 +50,9 @@ public:
 		// CTRL switch input
 		pinMode(modeSelect, INPUT);
 
-        // global enable control
-        pinMode(enableGlobal, OUTPUT);
-        digitalWriteFast(enableGlobal, HIGH); // HIGH = INHIBIT
+        // global inhibit
+        pinMode(globalInhibit, OUTPUT);
+        digitalWriteFast(globalInhibit, HIGH); // HIGH = INHIBIT
 
         // setup MCP23008
         i2cPins.begin();
@@ -81,10 +81,12 @@ public:
 			// de-select quadrature decoders
 			pinMode(csEnc[aa], OUTPUT);
 			digitalWriteFast(csEnc[aa], HIGH);
+
 			// status LEDs (green)
 			pinMode(led[aa], OUTPUT);
 			digitalWriteFast(led[aa], LOW);
-			// software brakes (HIGH = amps disabled)
+
+			// software brakes (HIGH = amps disabled, since limitSwitchState_ should be LOW if not triggered)
 			pinMode(ampCtrl[aa], OUTPUT);
 			digitalWriteFast(ampCtrl[aa], HIGH); // should match MCB::ampCtrlState_[aa]
 		}
@@ -95,7 +97,7 @@ public:
 
 	// These pins are current as of Rev 1.4
     Adafruit_MCP23008 i2cPins; // extra GPIO available over I2C via MCP23008
-    const uint8_t i2cBrakeHw = 0;  // i2cPin: connected to hardware brake switch
+    const uint8_t i2cBrakeHw = 0;  // i2cPin: connected to hardware brake switch (amps disabled when HIGH)
     const uint8_t i2cExtra = 1;    // i2cPin: unused extra GPIO pin
     const uint8_t i2cEnableM5 = 2; // i2cPin: state of enable pin for motor 5 amp
     const uint8_t i2cEnableM4 = 3; // i2cPin: state of enable pin for motor 4 amp
@@ -105,7 +107,7 @@ public:
     const uint8_t i2cEnableM0 = 7; // i2cPin: state of enable pin for motor 0 amp
     const uint8_t i2cInt = 22; // interrupt pin of MCP23008; signals when the enable pin of an amp changes
 
-    const uint8_t enableGlobal = 33; // global enable control for all amps
+    const uint8_t globalInhibit = 33; // global enable control for all amps
     const uint8_t maxNumBoards = 6; // number of daughterboard sockets
 	const uint8_t csSdCard = 4;     // SD card chip-select
 	const uint8_t resetWiz = 9; // WIZ820io reset pin
@@ -113,13 +115,13 @@ public:
 	const uint8_t csDac = 27;   // global chip-select pin (SYNC) for DACs (AD5761R)
     const uint8_t modeSelect = 28; // connected to manual/ROS mode select switch
 	const uint8_t csEnc[6] = { 20, 17, 15, 29, 32, 30 }; // chip-select pins for quadrature encoder IC (LS7366R)
-    const uint8_t ampCtrl[6] = { 21, 16, 14, 25, 26, 31 }; // motor amp control pins (HIGH = POWER ON)
+    const uint8_t ampCtrl[6] = { 21, 16, 14, 25, 26, 31 }; // motor amp control pins (ENABLED when ampCtrl == limitSwitchState)
     const uint8_t led[6] = { 24, 7, 6, 5, 3, 2 };   // control the green LEDs
 	const uint8_t buttonDown = 0;
 	const uint8_t buttonUp = 1;
 	const uint8_t buttonMenu = 23;
 	const uint8_t buttons[3] = { buttonDown, buttonUp, buttonMenu };
-	const float   buttonThresh[3] = { 1500, 1500, 1500 }; // thresholds that constitute a key press (pF)
+	const float   buttonThresh[3] = { 1200, 1200, 1200 }; // thresholds that constitute a key press (pF)
 	volatile bool buttonStates[3] = { 0, 0, 0 }; // volatile in case used within interrupt
 };
 
