@@ -13,7 +13,7 @@ MCB::MCB(void)
 	DACval_.reserve(pins.maxNumBoards);
 }
 
-int MCB::init(void)
+int MCB::init(bool ignoreErrors /* = false */)
 // detects and initializes daughterboard motor modules
 // returns number of modules detected
 // returns -1 to indicate error. Read error code with getErrorCode()
@@ -29,7 +29,7 @@ int MCB::init(void)
     // Determine initial states of limit switches and e-stop
     initLimitSwitchStates(); // sets errorCode_
 
-    if (errorCode_ != MCB::ErrorCode::NO_ERROR) {
+    if (errorCode_ != MCB::ErrorCode::NO_ERROR && !ignoreErrors) {
         return -1;
     }
 
@@ -159,16 +159,6 @@ void MCB::addModule(uint8_t position)
     moduleConfigured_.push_back(false);
 	moduleConfigured_.at(position) = modules_.at(position).init(); // initialize modules
 }
-
-//MCB::ErrorCode MCB::getErrorCode()
-//{
-//    return errorCode_;
-//}
-
-//uint8_t MCB::numModules(void)
-//{
-//    return numModules_;
-//}
 
 void MCB::setPolarity(uint8_t position, bool polarity)
 {
@@ -317,7 +307,7 @@ bool MCB::enableAllAmps(void)
     return success; // false if any were unsuccessful
 }
 
-bool MCB::setGlobalInhibit(bool inhibit)
+bool MCB::setGlobalInhibit(bool inhibit, bool eStopCheck /* = true */)
 {
     // setting FALSE  => each amp will be enabled depending on ampCtrlState_ and limitSwitchState_
     // setting TRUE   => all amps DISABLED (regardless of ampCtrlState_ and limitSwitchState_)
@@ -329,7 +319,7 @@ bool MCB::setGlobalInhibit(bool inhibit)
         digitalWriteFast(pins.globalInhibit, inhibit);
         success = true;
     }
-    else {
+    else if (eStopCheck) {
         // if we want global inhibit FALSE, we must first ensure the e-stop is not triggered
         if (!eStopState_) {
             digitalWriteFast(pins.globalInhibit, inhibit);
@@ -341,6 +331,11 @@ bool MCB::setGlobalInhibit(bool inhibit)
                 success = true;
             }
         }
+    }
+    else {
+        // forcefully override e-stop check and set FALSE
+        digitalWriteFast(pins.globalInhibit, inhibit);
+        success = true;
     }
     
     return success;
@@ -373,8 +368,8 @@ bool MCB::updateAmpStates(void)
     
     triggeredLimitSwitches_.clear(); // reset
     
-    bool brakeHwStatePrevious = brakeHwState_;
     bool eStopStatePrevious = eStopState_;
+    bool globalInhibitState = digitalReadFast(pins.globalInhibit);
 
     // read current states
     uint8_t i2cStates = pins.i2cPins.readGPIO();
@@ -386,9 +381,14 @@ bool MCB::updateAmpStates(void)
     ampEnabled_[5] = bitRead(i2cStates, pins.i2cEnableM5);
     brakeHwState_  = bitRead(i2cStates, pins.i2cBrakeHw); // HIGH = all amps DISABLED
 
-    // first determine if state of e-stop changed
-    // if e-stop is not currently triggered, then brakeHwState should have gone LOW when we set globalInhibit LOW/FALSE
-    eStopState_ = brakeHwState_;
+    // update eStopState_
+    if (brakeHwState_ && !globalInhibitState) {
+        // if brakeHwState_ is true, but globalInhibitState is false, then the e-stop must have been triggered
+        eStopState_ = true;
+    }
+    else {
+        eStopState_ = false;
+    }
     
 
     if (eStopState_ != eStopStatePrevious) // e-stop triggered
@@ -397,9 +397,10 @@ bool MCB::updateAmpStates(void)
 
         // to be safe, re-initialize all limit switch states when first switching off e-stop and ensure all amps are disabled
         if (!eStopState_) {
-            triggeredLimitSwitches_.push_back(MCB::LimitSwitch::ESTOP);
             initLimitSwitchStates(); // disables all motors and sets globalInhibit true
         }
+
+        triggered = true;
     }
     else if (!eStopState_) // e-stop was not triggered and is currently disabled (NOTE: limit switch states can only be inferred when e-stop is disabled)
     {
@@ -423,7 +424,7 @@ bool MCB::updateAmpStates(void)
                 limitSwitchState_[aa] = limitSwitchStateTemp; // update
             }
             else {
-                // ampEnabled must have changed due to ampCtrl (via the user), not limitSwitch
+                // ampEnabled must have changed due to ampCtrl or globalInhibit (via the user), not limitSwitch
             }
         }
 
@@ -449,52 +450,13 @@ bool MCB::updateAmpStates(void)
     return triggered;
 }
 
-//std::vector<MCB::LimitSwitch> MCB::triggeredLimitSwitches(void)
-//{
-//    return triggeredLimitSwitches_;
-//}
-
-//bool MCB::limitSwitchState(uint8_t position)
-//{
-//    // first check if update is needed
-//    if (ampEnableFlag_) {
-//        updateAmpStates();
-//    }
-//
-//    return limitSwitchState_.at(position);
-//}
-
-//bool MCB::eStopState(void)
-//{
-//    return eStopState_;
-//}
-
-//bool MCB::triggeredLimitSwitchFlag(void)
-//{
-//    return triggeredLimitSwitchFlag_;
-//}
-
-//void MCB::resetTriggeredLimitSwitches(void)
-//{
-//    triggeredLimitSwitches_.clear();
-//}
-
-//bool MCB::ampEnableFlag(void)
-//{
-//    return ampEnableFlag_;
-//}
-
-//void MCB::setAmpEnableFlag(void)
-//{
-//    ampEnableFlag_ = true;
-//}
-
 MCB::ErrorCode MCB::initLimitSwitchStates(void)
 {   
     // This function determines the state of all limit switches and sets ampCtrl pins to ensure amps remain disabled when global enable is set true
     // returns errorCode_
 
      triggeredLimitSwitches_.clear(); // reset
+     errorCode_ = MCB::ErrorCode::NO_ERROR; // reset
 
     // ensure global inhibit is true
     setGlobalInhibit(true);
@@ -506,7 +468,7 @@ MCB::ErrorCode MCB::initLimitSwitchStates(void)
     }
 
     // briefly set globalInhibit false and read enable lines
-    setGlobalInhibit(false);
+    setGlobalInhibit(false, false); // override e-stop check
     delayMicroseconds(1);
     uint8_t i2cStates = pins.i2cPins.readGPIO();
     setGlobalInhibit(true);
@@ -556,127 +518,6 @@ MCB::ErrorCode MCB::initLimitSwitchStates(void)
 
     return errorCode_;
 }
-
-//int8_t MCB::whichDevice(void)
-//{
-//    /*
-//    multiple pins with interrupt conditions = -1
-//    no pins with interrupt conditions = -2
-//    0-5 -> index of motor whose limit switch was triggered
-//    6 -> E-stop or hardware brake was triggered
-//
-//    In reality, if the E-stop is triggered it will also cause all 
-//    other enable pins to trigger as well. So it should always appear
-//    as -1 and not 6.    
-//    */
-//
-//    int8_t device;
-//
-//    int8_t triggeringPin = pins.i2cPins.whichInterrupt();
-//
-//    switch (triggeringPin) {
-//    case -1:
-//        device = -1; // multiple pins triggered
-//        break;
-//
-//    case 0:
-//        device = 6; // BrakeHW
-//        break;
-//
-//    case 1:
-//        device = 7; // i2cGpio
-//        break;
-//
-//    case 2:
-//        device = 5; // i2cEnableM5
-//        break;
-//
-//    case 3:
-//        device = 4; // i2cEnableM4
-//        break;
-//
-//    case 4:
-//        device = 3; // i2cEnableM3
-//        break;
-//
-//    case 5:
-//        device = 2; // i2cEnableM2
-//        break;
-//
-//    case 6:
-//        device = 1; // i2cEnableM1
-//        break;
-//
-//    case 7:
-//        device = 0; // i2cEnableM0
-//        break;
-//
-//    default:
-//        device = -2; // no pins triggered
-//    }
-//
-//    return device;
-//}
-
-//Int8Vec MCB::whichDevices(void)
-//{
-//    Int8Vec devices;
-//
-//    // read INTF register of MCP23008
-//    uint8_t triggeringPins = pins.i2cPins.readInterrupt();
-//    
-//    if (!triggeringPins) {
-//        devices.push_back(-1);
-//        return devices; // no interrupted pins detected
-//    }
-//
-//    // check each bit to determine if it was triggered
-//    for (int ii = 0; ii < 8; ii++) {
-//        uint8_t tmp = triggeringPins;
-//        tmp &= (1 << ii); // isolate bit ii
-//
-//        // if non-zero, determine the device corresponding to pin ii
-//        if (tmp) {
-//            switch (ii) {
-//            case 0:
-//                devices.push_back(6); // BrakeHW
-//                break;
-//            case 1:
-//                devices.push_back(7); // i2cGpio
-//                break;
-//
-//            case 2:
-//                devices.push_back(5); // i2cEnableM5
-//                break;
-//
-//            case 3:
-//                devices.push_back(4); // i2cEnableM4
-//                break;
-//
-//            case 4:
-//                devices.push_back(3); // i2cEnableM3
-//                break;
-//
-//            case 5:
-//                devices.push_back(2); // i2cEnableM2
-//                break;
-//
-//            case 6:
-//                devices.push_back(1); // i2cEnableM1
-//                break;
-//
-//            case 7:
-//                devices.push_back(0); // i2cEnableM0
-//                break;
-//
-//            default:
-//                break; // no pins triggered
-//            }
-//        }
-//    }
-//    
-//    return devices;
-//}
 
 MCB::LimitSwitch MCB::positionToLimitSwitch(uint8_t position)
 {
@@ -753,11 +594,6 @@ uint8_t MCB::limitSwitchToPosition(LimitSwitch limitSwitch)
     return position;
 }
 
-//void MCB::setGains(uint8_t position, float kp, float ki, float kd)
-//{
-//	modules_.at(position).setGains(kp, ki, kd);
-//}
-
 FloatVec MCB::getGains(uint8_t position)
 {
     FloatVec gains;
@@ -767,11 +603,6 @@ FloatVec MCB::getGains(uint8_t position)
 
     return gains;
 }
-
-//float MCB::getEffort(uint8_t position)
-//{
-//    return modules_.at(position).getEffort();
-//}
 
 void MCB::stepPid(void)
 {
@@ -787,11 +618,6 @@ void MCB::stepPid(void)
 	// update DACs
 	setDACs(DACval_);
 }
-
-//void MCB::restartPid(uint8_t position)
-//{
-//    modules_.at(position).restartPid();
-//}
 
 void MCB::setDACs(Int16Vec const &val)
 {
@@ -835,16 +661,6 @@ void MCB::toggleLEDG(uint8_t position)
 	}
 }
 
-//void MCB::setCountDesired(uint8_t position, int32_t countDesired)
-//{
-//	modules_.at(position).setCountDesired(countDesired);
-//}
-
-//int32_t MCB::getCountDesired(uint8_t position)
-//{
-//    return modules_.at(position).getCountDesired();
-//}
-
 Int32Vec MCB::getCountsDesired(void)
 {
     Int32Vec countsDesired(pins.maxNumBoards);
@@ -864,16 +680,6 @@ Int32Vec MCB::getCountsLast(void)
 	
 	return countsLast;
 }
-
-//int32_t MCB::getCountLast(uint8_t moduleNum)
-//{	
-//	return modules_.at(moduleNum).getCountLast();
-//}
-
-//int32_t MCB::readCountCurrent(uint8_t moduleNum)
-//{
-//    return modules_.at(moduleNum).readCount();
-//}
 
 bool MCB::resetCount(uint8_t moduleNum)
 {
@@ -917,21 +723,6 @@ Uint32Vec MCB::readButtons(void)
 	return buttonValues;
 }
 
-//bool MCB::isDownPressed(void)
-//{
-//	return pins.buttonStates[0];
-//}
-
-//bool MCB::isUpPressed(void)
-//{
-//	return pins.buttonStates[1];
-//}
-
-//bool MCB::isMenuPressed(void)
-//{
-//	return pins.buttonStates[2];
-//}
-
 bool MCB::isEverythingPressed(void)
 {
 	if (isMenuPressed() && isUpPressed() && isDownPressed()) {
@@ -941,20 +732,6 @@ bool MCB::isEverythingPressed(void)
 		return false;
 	}
 }
-
-//BoolVec MCB::isModuleConfigured(void)
-//{
-//    return moduleConfigured_;
-//}
-
-//bool MCB::isModuleConfigured(uint8_t position)
-//{
-//    if (position >= moduleConfigured_.size()) {
-//        return 0;
-//    }
-//
-//    return moduleConfigured_.at(position);
-//}
 
 MCB::~MCB(void)
 {

@@ -45,7 +45,7 @@ public:
     MCB(void);
 	~MCB(void);
 
-    int init(void); // initializes modules; returns number of detected modules
+    int init(bool ingoreErrors = false); // initializes modules; returns number of detected modules or -1 if errors (unless ignoreErrors = true)
 
     enum class ErrorCode { NO_ERROR, WRONG_MODULE_ORDER, ESTOP_TRIGGERED, LIMIT_SWITCH_TRIGGERED_ON_STARTUP };
     ErrorCode getErrorCode() { return errorCode_; } // returns any current error code
@@ -59,7 +59,7 @@ public:
     void setPolarity(uint8_t position, bool polarity); // used to make sure positive current -> positive encoder counts
     void setPolarity(bool polarity); // sets all modules
     
-    bool setGlobalInhibit(bool inhibit); // global inhibit control for all amps; TRUE = INHIBIT (i.e. no power to motors)
+    bool setGlobalInhibit(bool inhibit, bool eStopCheck = true); // global inhibit control for all amps; TRUE = INHIBIT (i.e. no power to motors)
     bool isAmpEnabled(uint8_t position); // true if amp output is enabled
     bool enableAmp(uint8_t position);  // sets inhibit pin for motor amp
 	bool disableAmp(uint8_t position); // sets inhibit pin for motor amp
@@ -69,6 +69,7 @@ public:
     enum class LimitSwitch { ESTOP, LIMIT_M0, LIMIT_M1, LIMIT_M2, LIMIT_M3, LIMIT_M4, LIMIT_M5, ERROR };
     LimitSwitch positionToLimitSwitch(uint8_t position); // convert position index to MCB::LimitSwitch type
     uint8_t limitSwitchToPosition(LimitSwitch limitSwitch); // convert MCB::LimitSwitch type to position index
+    MCB::ErrorCode initLimitSwitchStates(void); // determines initial states of limit switches and e-stop by briefly toggling enableGlobal and ampCtrl pins
     bool updateAmpStates(void); // call this after ampEnableFlag_ has been set true. Returns true if a limit switch was triggered
     std::vector<LimitSwitch> triggeredLimitSwitches(void) { return triggeredLimitSwitches_; }
     bool limitSwitchState(uint8_t position) { return limitSwitchState_[position]; }
@@ -121,10 +122,7 @@ private:
 
     ErrorCode errorCode_ = ErrorCode::NO_ERROR;
     volatile bool ampEnableFlag_ = true; // this flag is set by ampEnabledISR whenever ampEnabled_ state changes
-    //bool triggeredLimitSwitchFlag_ = false; // gets set true whenever a limitSwitchState changes
-    MCB::ErrorCode initLimitSwitchStates(void); // determines initial states of limit switches and e-stop by briefly toggling enableGlobal and ampCtrl pins
     std::vector<LimitSwitch> triggeredLimitSwitches_; // vector of any currently triggered limit switches/e-stop; reset with resetTriggeredLimitSwitches()
-    //BoolVec limitSwitchTriggered_ = { false, false, false, false, false, false }; // true when limit switch has been triggered
     BoolVec limitSwitchState_ = { LOW, LOW, LOW, LOW, LOW, LOW }; // current state of each limit switch
     BoolVec ampEnabled_ = { false, false, false, false, false, false }; // current state of each amp's enable pin
     bool    brakeHwState_ = HIGH; // HIGH = all amps DISABLED

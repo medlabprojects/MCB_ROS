@@ -38,7 +38,7 @@ Changelog-
 void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
 void modeSwitchCallback(void); // ISR for mode switch on motherboard
 void ampEnableISR(void); // ISR for MCP23008 interrupt that is triggered whenever an ampEnabled pin changes
-void printErrorMessage(void); // reads MCB::getErrorCode() and prints message 
+void printErrorMessage(MCB::ErrorCode errorCode); // reads MCB::getErrorCode() and prints message 
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };

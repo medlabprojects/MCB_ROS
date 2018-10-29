@@ -131,9 +131,31 @@ MCBstate PowerUP(void)
     Serial.println("********************************\n");
 	
     if (MotorBoard.init() == -1) {
-        printErrorMessage();
+        MCB::ErrorCode errorCode = MotorBoard.getErrorCode();
+
+        printErrorMessage(errorCode);
         
+        Serial.println("\nEnter 'y' to ignore and force initialization");
+        bool youAreReckless = false;
+
         while (1) {
+            // check for serial commands
+            if (Serial.available() > 0) {
+                char cmd = Serial.read();
+
+                if (cmd == 'y') {
+                    if (youAreReckless) {
+                        Serial.println("\nForcing initialization...\n");
+                        MotorBoard.init(youAreReckless);
+                        break;
+                    }
+                    else {
+                        youAreReckless = true;
+                        Serial.println("\n!!! THIS MAY CAUSE UNDESIRED MOTOR MOVEMENT !!!");
+                        Serial.println("\nAre you absolutely sure you know what you are doing?!?!");
+                    }
+                }
+            }
             MotorBoard.setLEDG(HIGH);
             delay(500);
             MotorBoard.setLEDG(LOW);
@@ -141,15 +163,9 @@ MCBstate PowerUP(void)
         }
     }
     Serial.print(MotorBoard.numModules());
-    Serial.println(F(" motor modules detected and configured"));
+    Serial.println(" motor modules detected and configured");
 
     delay(10);
-    
-    // initialize limit switch states
-    //MotorBoard.updateAmpStates();
-
-    // ensure amps are disabled
-    //MotorBoard.disableAllAmps();
 
 	// create pin change interrupt for mode switch
 	attachInterrupt(MotorBoard.pins.modeSelect, modeSwitchCallback, CHANGE);
@@ -293,10 +309,10 @@ MCBstate RosIdle(void)
 {
 	stateCurrent = stateRosIdle;
 
-    Serial.println(F("\n\n*************************"));
-	Serial.println(F("\nEntering ROS Idle state"));
-    Serial.println(F("*************************"));
-    Serial.println(F("\nwaiting for enable signal via enable_controller"));
+    Serial.println("\n\n*************************");
+	Serial.println("\nEntering ROS Idle state");
+    Serial.println("*************************");
+    Serial.println("\nwaiting for enable signal via enable_controller");
 
     // ensure amps are off
     MotorBoard.disableAllAmps();
@@ -363,6 +379,21 @@ MCBstate RosControl(void)
     Serial.println(F("Entering ROS Control state"));
     Serial.println(F("**************************"));
 
+    // ensure that e-stop is not engaged
+    if (MotorBoard.initLimitSwitchStates() == MCB::ErrorCode::ESTOP_TRIGGERED) {
+        Serial.println("\nE-Stop engaged! \nMust disengage before entering control state.");
+        Serial.println("\nReturning to idle state...");
+
+        // publish limit switch event
+        msgLimitSwitchEvent.motor = 6; // 6 => E-STOP
+        msgLimitSwitchEvent.enable = MotorBoard.eStopState();
+        pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
+
+        // return to RosIdle state
+        ROSenable = false;
+        return stateRosIdle;
+    }
+
 	// set desired motor position to current position (prevents unexpected movement)
 	for (int ii = 0; ii < MotorBoard.numModules(); ii++) {
 		MotorBoard.setCountDesired(ii, MotorBoard.readCountCurrent(ii));
@@ -386,34 +417,6 @@ MCBstate RosControl(void)
 	while (ROSenable && nh.connected() && (modeState == Ros)) 
     { 
     // NOTE: this while loop must be able to run at least twice as fast as fastest InterruptTimer (usually timerPid)
-        
-        if (MotorBoard.ampEnableFlag()) {
-            // update current states of limit switches and ampEnable pins, and determine what was triggered
-            std::vector<MCB::LimitSwitch> deviceTriggered = MotorBoard.updateAmpStates();
-
-            // process limit switch event
-            if (MotorBoard.limitSwitchTriggeredFlag()) {
-                // disable motor
-                MotorBoard.disableAmp(deviceTriggered);
-
-                // publish limit switch event
-                msgLimitSwitchEvent.motor = deviceTriggered;
-                msgLimitSwitchEvent.enable = MotorBoard.limitSwitchState(deviceTriggered);
-                pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
-            }
-            else if (deviceTriggered == 6) { // e-stop
-                // publish limit switch event
-                msgLimitSwitchEvent.motor = deviceTriggered;
-                msgLimitSwitchEvent.enable = MotorBoard.eStopState();
-                pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
-
-                // exit ROS control state
-                ROSenable = false;
-            }
-
-            // can reset now that we've processed events
-            MotorBoard.resetLimitSwitchTriggered();
-        }
 
         // process any triggered limit switches
         if (MotorBoard.ampEnableFlag())
@@ -426,35 +429,25 @@ MCBstate RosControl(void)
                     if (MotorBoard.triggeredLimitSwitches().at(ii) == MCB::LimitSwitch::ESTOP)
                     {   // e-stop was triggered
 
-                        Serial.println("\nE-Stop Engaged! \nExiting Manual Control State");
+                        // publish limit switch event
+                        msgLimitSwitchEvent.motor = 6; // 6 => E-STOP
+                        msgLimitSwitchEvent.enable = MotorBoard.eStopState();
+                        pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
 
-                        // stop timers and disable amps
-                        timerManualControl.end();
-                        timerMotorSelectLed.end();
-                        timerPid.end();
-                        MotorBoard.disableAllAmps();
-
-                        // leave control state
-                        return stateManualIdle;
+                        // exit ROS control state
+                        ROSenable = false;
                     }
                     else
                     {   // limit switch was triggered
                         uint8_t modulePosition = MotorBoard.limitSwitchToPosition(MotorBoard.triggeredLimitSwitches().at(ii)); // convert MCB::LimitSwitch to uint8_t
                         if (modulePosition <= MotorBoard.numModules()) {
-                            // ensure this motor this disabled
+                            // ensure this motor is disabled
                             MotorBoard.disableAmp(modulePosition);
 
-                            Serial.print("limit switch ");
-                            Serial.print(modulePosition);
-                            Serial.print(" triggered (switch is currently");
-                            if (MotorBoard.limitSwitchState(modulePosition)) {
-                                Serial.println("closed)");
-                            }
-                            else {
-                                Serial.println("open)");
-                            }
-
-                           
+                            // publish limit switch event
+                            msgLimitSwitchEvent.motor = modulePosition;
+                            msgLimitSwitchEvent.enable = MotorBoard.limitSwitchState(modulePosition);
+                            pubLimitSwitchEvent.publish(&msgLimitSwitchEvent);
                         }
                     }
                 }
@@ -646,6 +639,13 @@ MCBstate ManualControl(void)
     // flash led of currently selected motor
     timerMotorSelectLed.begin(motorSelectLedCallback, 350000);
 
+    // ensure that e-stop is not engaged
+    if (MotorBoard.initLimitSwitchStates() == MCB::ErrorCode::ESTOP_TRIGGERED) {
+        Serial.println("\nE-Stop engaged! Must disengage before entering control state.");
+        Serial.println("\nReturning to idle state...");
+        return stateManualIdle;
+    }
+
     // disable globalInhibit for amps
     MotorBoard.setGlobalInhibit(false);
     MotorBoard.updateAmpStates();
@@ -686,7 +686,7 @@ MCBstate ManualControl(void)
                         if (modulePosition <= MotorBoard.numModules()) {
                             Serial.print("limit switch ");
                             Serial.print(modulePosition);
-                            Serial.print(" triggered (switch is currently");
+                            Serial.print(" triggered (switch is currently ");
                             if (MotorBoard.limitSwitchState(modulePosition)) {
                                 Serial.println("closed)");
                             }
@@ -745,9 +745,9 @@ void ampEnableISR(void)
     MotorBoard.setAmpEnableFlag();
 }
 
-void printErrorMessage(void)
+void printErrorMessage(MCB::ErrorCode errorCode)
 {
-    switch (MotorBoard.getErrorCode())
+    switch (errorCode)
     {
     case MCB::ErrorCode::NO_ERROR:
         Serial.println("\nThere is currently no error :)");
