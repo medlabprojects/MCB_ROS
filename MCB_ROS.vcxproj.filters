@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="MCB_ROS.ino" />
+    <None Include="documentation\MCB State Diagram.svg" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AD5761R.h">
@@ -74,5 +75,10 @@
     <ClCompile Include="MCB_FSM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="documentation\MCB State Diagram.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

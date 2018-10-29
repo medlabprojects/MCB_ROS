@@ -75,6 +75,7 @@
     <ProjectCapability Include="VisualMicro" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="documentation\MCB State Diagram.svg" />
     <None Include="MCB_ROS.ino" />
   </ItemGroup>
   <ItemGroup>
@@ -98,6 +99,9 @@
     <ClCompile Include="MCB_FSM.cpp" />
     <ClCompile Include="PID_f32.cpp" />
     <ClCompile Include="si5351.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="documentation\MCB State Diagram.png" />
   </ItemGroup>
   <PropertyGroup>
     <DebuggerFlavor>VisualMicroDebugger</DebuggerFlavor>
