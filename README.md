@@ -252,5 +252,9 @@ Each topic name will be preceded by the namespace you chose during the 'MCB Seri
 | **/encoder_zero_all** | Input | Resets all motors current positions to zero | std_msgs::Empty | `rostopic pub -1 /namespace/encoder_zero_all std_msgs/Empty`
 | **/set_gains** | Input | Sets new PID gain values for each motor | medlab_motor_control_board::McbGains | `rostopic pub -1 /namespace/set_gains medlab_motor_control_board::McbGains '{motor: 1, p: 0.1, i: 0.0002, d: 0.01}'`
 
+# State Diagrams
+The following state diagram applies to both modes (Manual and ROS). The only difference is whether user input comes from the capacitive buttons on the motherboard or in the form of ROS messages.
+![MCB State Diagram](https://raw.githubusercontent.com/tlbruns/MCB_ROS/master/documentation/MCB%20State%20Diagram%20(no%20title).png)
+
 ## Author
 **Trevor Bruns**
