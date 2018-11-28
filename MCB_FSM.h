@@ -32,7 +32,7 @@ Changelog-
 #include <medlab_motor_control_board/McbGains.h>
 #include <medlab_motor_control_board/McbStatus.h>
 
-#define MCB_VERSION 1.4
+#define MCB_VERSION 1.41
 
 // Motor Control Board
 void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
