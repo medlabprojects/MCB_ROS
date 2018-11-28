@@ -32,12 +32,13 @@ Changelog-
 #include <medlab_motor_control_board/McbGains.h>
 #include <medlab_motor_control_board/McbStatus.h>
 
-#define MCB_VERSION 1.4
+#define MCB_VERSION 1.41
 
 // Motor Control Board
 void motorSelectLedCallback(void); // ISR for toggling LED of selected motor during manual control state
 void modeSwitchCallback(void); // ISR for mode switch on motherboard
 void ampEnableISR(void); // ISR for MCP23008 interrupt that is triggered whenever an ampEnabled pin changes
+void printErrorMessage(MCB::ErrorCode errorCode); // reads MCB::getErrorCode() and prints message 
 
 // Finite State Machine
 enum MCBstate { statePowerUp, stateManualIdle, stateManualControl, stateRosInit, stateRosIdle, stateRosControl };
