@@ -58,11 +58,6 @@ bool MCBmodule::init(void)
     return configured_;
 }
 
-//bool MCBmodule::isConfigured(void)
-//{
-//    return configured_;
-//}
-
 uint16_t MCBmodule::step(void)
 {
     uint16_t dacCmd; // DAC command
@@ -90,25 +85,10 @@ uint16_t MCBmodule::step(void)
 	return dacCmd;
 }
 
-//float MCBmodule::getEffort(void)
-//{
-//	return effort_;
-//}
-
-//void MCBmodule::restartPid(void)
-//{
-//	pid_.reset();
-//}
-
-//int32_t MCBmodule::getError(void)
-//{
-//	return countError_;
-//}
-
 uint16_t MCBmodule::effortToDacCommand(float effort)
 {
 	float effortTemp = effort;
-
+    
 	// check for saturation
 	if (effort > dacRange_[1]) { 
         effortTemp = dacRange_[1]; 
@@ -119,24 +99,8 @@ uint16_t MCBmodule::effortToDacCommand(float effort)
 
     // encode effort to 16-bit DAC code
     // DAC code = (2^16)*(effort - Vmin)/(Vmax - Vmin)
-    return static_cast<uint16_t>( 65535.0 * (effortTemp - dacRange_[0]) / (dacRange_[1] - dacRange_[0]) );
+    return static_cast<uint16_t>( 65535.0f * (effortTemp - dacRange_[0]) / (dacRange_[1] - dacRange_[0]) );
 }
-
-//void MCBmodule::setMotorPolarity(bool polarity)
-//{
-//    motorPolarity_ = polarity;
-//}
-
-//void MCBmodule::setCountDesired(int32_t countDesired)
-//{
-//	
-//	countDesired_ = countDesired;
-//}
-
-//int32_t MCBmodule::getCountDesired(void)
-//{
-//	return countDesired_;
-//}
 
 int32_t MCBmodule::readCount(void)
 {
@@ -145,11 +109,6 @@ int32_t MCBmodule::readCount(void)
 
 	return countLast_;
 }
-
-//int32_t MCBmodule::getCountLast(void)
-//{
-//	return countLast_;
-//}
 
 bool MCBmodule::resetCount(void)
 {
@@ -174,41 +133,6 @@ bool MCBmodule::resetCount(void)
     
     return success;
 }
-
-//void MCBmodule::setGains(float kp, float ki, float kd)
-//{
-//	pid_.setGains(kp, ki, kd);
-//}
-
-//void MCBmodule::setKp(float kp)
-//{
-//	pid_.setKp(kp);
-//}
-
-//void MCBmodule::setKi(float ki)
-//{
-//	pid_.setKi(ki);
-//}
-
-//void MCBmodule::setKd(float kd)
-//{
-//	pid_.setKd(kd);
-//}
-
-//float MCBmodule::getKp(void)
-//{
-//	return pid_.getKp();
-//}
-
-//float MCBmodule::getKi(void)
-//{
-//	return pid_.getKi();
-//}
-
-//float MCBmodule::getKd(void)
-//{
-//	return pid_.getKd();
-//}
 
 MCBmodule::~MCBmodule(void)
 {

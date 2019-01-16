@@ -46,6 +46,8 @@ public:
 	~MCB(void);
 
     int init(bool ingoreErrors = false); // initializes modules; returns number of detected modules or -1 if errors (unless ignoreErrors = true)
+    
+    void initDACs(void);
 
     enum class ErrorCode { NO_ERROR, WRONG_MODULE_ORDER, ESTOP_TRIGGERED, LIMIT_SWITCH_TRIGGERED_ON_STARTUP };
     ErrorCode getErrorCode() { return errorCode_; } // returns any current error code
@@ -98,8 +100,9 @@ public:
 
     void setLEDG(uint8_t position, bool state); // sets green LED
 	void setLEDG(bool state); // sets all green LEDs
-	void toggleLEDG(uint8_t position); // toggle state of green LED
-	
+    void toggleLEDG(uint8_t position) { setLEDG(position, !LEDG_.at(position)); } // toggle state of green LED
+    void toggleLEDG(void) { setLEDG(!LEDG_.at(0)); } // toggles all green LEDs together (syncs based on state of LEDG_[0])
+
     void setDACs(Int16Vec const &val); // manually set DAC outputs
 	
 	Uint32Vec readButtons(void);	 // check capacitive sensor buttons for key presses

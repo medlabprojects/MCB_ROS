@@ -62,30 +62,56 @@ int MCB::init(bool ignoreErrors /* = false */)
             return -1; // error: incorrect module order
         }
     }
-	//
-	// initialize DACs
-	DAC_.beginTransfer();
-	for (uint8_t bb = 0; bb < numModules_; bb++)
-	{
-		DAC_.reset(); // software reset
-	}
-	DAC_.endTransfer();
 	
-	DAC_.beginTransfer();
-	for (uint8_t bb = 0; bb < numModules_; bb++)
-	{
-		DAC_.init(); // setup ctrl register
-	}
-	DAC_.endTransfer();
+	// initialize 
+    initDACs();
+	//DAC_.beginTransfer();
+	//for (uint8_t bb = 0; bb < numModules_; bb++)
+	//{
+	//	DAC_.reset(); // software reset
+	//}
+	//DAC_.endTransfer();
+	//
+	//DAC_.beginTransfer();
+	//for (uint8_t bb = 0; bb < numModules_; bb++)
+	//{
+	//	DAC_.init(); // setup ctrl register
+	//}
+	//DAC_.endTransfer();
 
-	DAC_.beginTransfer();
-	for (uint8_t bb = 0; bb < numModules_; bb++)
-	{
-		DAC_.set(0); // Set output to 0 volts
-	}
-	DAC_.endTransfer();
+	//DAC_.beginTransfer();
+	//for (uint8_t bb = 0; bb < numModules_; bb++)
+	//{
+	//	DAC_.set(0); // Set output to 0 volts
+	//}
+	//DAC_.endTransfer();
 
     return numModules_;
+}
+
+void MCB::initDACs(void)
+{
+    // initialize DACs
+    DAC_.beginTransfer();
+    for (uint8_t bb = 0; bb < numModules_; bb++)
+    {
+        DAC_.reset(); // software reset
+    }
+    DAC_.endTransfer();
+
+    DAC_.beginTransfer();
+    for (uint8_t bb = 0; bb < numModules_; bb++)
+    {
+        DAC_.init(); // setup ctrl register
+    }
+    DAC_.endTransfer();
+
+    DAC_.beginTransfer();
+    for (uint8_t bb = 0; bb < numModules_; bb++)
+    {
+        DAC_.set(0); // Set output to 0 volts
+    }
+    DAC_.endTransfer();
 }
 
 void MCB::waitForButtonHold(void)
@@ -648,18 +674,22 @@ void MCB::setLEDG(bool state)
 	}
 }
 
-void MCB::toggleLEDG(uint8_t position)
-{
-	// if on -> set off, else turn on
-	if (LEDG_.at(position)) {
-		LEDG_.at(position) = LOW;
-		setLEDG(position, LOW);
-	}
-	else {
-		LEDG_.at(position) = HIGH;
-		setLEDG(position, HIGH);
-	}
-}
+//void MCB::toggleLEDG(uint8_t position)
+//{
+//	// if on -> set off, else turn on
+//    if (LEDG_.at(position)) {
+//		setLEDG(position, LOW);
+//	}
+//	else {
+//		setLEDG(position, HIGH);
+//	}
+//}
+
+//void MCB::toggleLEDG(void)
+//{
+//    // toggle all together, synced to LEDG_[0]
+//    setLEDG(!LEDG_.at(0));
+//}
 
 Int32Vec MCB::getCountsDesired(void)
 {
@@ -700,6 +730,7 @@ bool MCB::resetCounts(void)
     bool success = true;
 
     for (int ii = 0; ii < numModules_; ii++) {
+        // unsuccessful if any fail
         if (!resetCount(ii)) {
             success = false; 
         }
