@@ -38,7 +38,7 @@ AD5761R::AD5761R(const uint8_t csDAC)
 	uint32_t B2C = B2C_BIN;	    // Bipolar range = straight binary encoded (uint16_t)
 	uint32_t ETS = ETS_ENABLE;  // Thermal shutdown = enabled
 	uint32_t IRO = IRO_ON;		// Internal reference = on
-	uint32_t PV  = PV_ZERO;		// Power up voltage = zero scale
+	uint32_t PV  = PV_MID;		// Power up voltage = midscale
 	uint32_t RA  = RA_TEN_TEN;	// Output range = -10V to +10V
 	//data_ctrl.value = (WR_CTRL << 16) | (CV << 9) | (OVR << 8) | (B2C << 7) | (ETS << 6) | (IRO << 5) | (PV << 3) | (RA);
 	dataCtrl_.value = (WR_CTRL | CV | OVR | B2C | ETS | IRO | PV | RA);

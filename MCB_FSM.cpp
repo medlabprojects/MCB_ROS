@@ -295,6 +295,7 @@ MCBstate RosInit(void)
 	nh.subscribe(subEncoderCommand);
     nh.subscribe(subEncoderZeroSingle);
     nh.subscribe(subEncoderZeroAll);
+    nh.subscribe(subResetDacs);
     nh.subscribe(subEnableMotor);
     nh.subscribe(subEnableAllMotors);
     nh.subscribe(subSetGains);
@@ -840,16 +841,6 @@ void modeSwitchCallback(void)
     // HIGH = ROS; LOW = Manual
 	modeState = (digitalReadFast(MotorBoard.pins.modeSelect) ? Ros: Manual);
 }
-
-//void timerPidCallback(void)
-//{
-//    timerPidFlag = true;
-//}
-
-//void timerRosCallback(void)
-//{
-//    timerRosFlag = true;
-//}
 
 void subEnableRosControlCallback(const std_msgs::Bool & msg)
 {
