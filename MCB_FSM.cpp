@@ -924,7 +924,9 @@ void subEncoderZeroAllCallback(const std_msgs::Empty & msg)
 
 void subResetDacsCallback(const std_msgs::Empty & msg)
 {
+    MotorBoard.disableAllAmps(); // briefly disable motors to prevent sudden movements
     MotorBoard.initDACs();
+    MotorBoard.enableAllAmps();
 }
 
 void subGetStatusCallback(const std_msgs::Empty & msg)

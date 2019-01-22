@@ -97,6 +97,7 @@ public:
 
     void stepPid(void); // PID controller performs one step (reads encoders, computes effort, updates DACs)
     void restartPid(uint8_t position) { modules_.at(position).restartPid(); } // resets PID controller, but keeps gains
+    void restartPid(void); // reset all PID controllers
 
     void setLEDG(uint8_t position, bool state); // sets green LED
 	void setLEDG(bool state); // sets all green LEDs

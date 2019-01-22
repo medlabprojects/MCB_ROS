@@ -91,6 +91,8 @@ int MCB::init(bool ignoreErrors /* = false */)
 
 void MCB::initDACs(void)
 {
+    // TODO: disable daisy-chain functionality for the last module when numModules_ < 6
+
     // initialize DACs
     DAC_.beginTransfer();
     for (uint8_t bb = 0; bb < numModules_; bb++)
@@ -643,6 +645,13 @@ void MCB::stepPid(void)
 	
 	// update DACs
 	setDACs(DACval_);
+}
+
+void MCB::restartPid(void)
+{
+    for (auto& module : modules_) {
+        module.restartPid();
+    }
 }
 
 void MCB::setDACs(Int16Vec const &val)
