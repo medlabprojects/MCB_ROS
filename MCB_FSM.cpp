@@ -924,9 +924,24 @@ void subEncoderZeroAllCallback(const std_msgs::Empty & msg)
 
 void subResetDacsCallback(const std_msgs::Empty & msg)
 {
-    MotorBoard.disableAllAmps(); // briefly disable motors to prevent sudden movements
+    // save current enable state of each motor
+    std::vector<bool> wasEnabled;
+    for (uint ii = 0; ii < MotorBoard.numModules(); ii++) {
+        wasEnabled.push_back(MotorBoard.isAmpEnabled(ii));
+    }
+
+    // briefly disable motors to prevent sudden movements
+    MotorBoard.disableAllAmps(); 
+    
+    // re-initialize all DACs
     MotorBoard.initDACs();
-    MotorBoard.enableAllAmps();
+
+    // restore enable states
+    for (uint ii = 0; wasEnabled.size(); ii++) {
+        if (wasEnabled.at(ii)) {
+            MotorBoard.enableAmp(ii);
+        }
+    }
 }
 
 void subGetStatusCallback(const std_msgs::Empty & msg)

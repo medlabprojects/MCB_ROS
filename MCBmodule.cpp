@@ -90,10 +90,11 @@ uint16_t MCBmodule::effortToDacCommand(float effort)
 	float effortTemp = effort;
     
 	// check for saturation
-	if (effort > dacRange_[1]) { 
+    float eps = 1e-6; // machine epsilon 
+	if (effort > (dacRange_[1] + eps)) { 
         effortTemp = dacRange_[1]; 
     }
-	else if (effort < dacRange_[0]) { 
+	else if (effort < (dacRange_[0] - eps)) { 
         effortTemp = dacRange_[0]; 
     }
 
