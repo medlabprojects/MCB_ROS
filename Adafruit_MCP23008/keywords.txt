@@ -1,0 +1,26 @@
+#######################################
+# Syntax Coloring Map for MCP23008
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+MCP23008	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+pullUp				KEYWORD2
+setInterruptMode	KEYWORD2
+readInterrupt		KEYWORD2
+whichInterrupt		KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+ActiveHigh	LITERAL1
+ActiveLow	LITERAL1
+OpenDrain	LITERAL1
