@@ -65,7 +65,7 @@ Communication between ROS and the Teensy is accomplished using rosserial. Follow
 ```
 cd <arduino_directory>/portable/sketchbook/libraries
 rm -rf ros_lib
-rosrun rosserial_arduino make_libraries.py .
+rosrun rosserial_client make_libraries .
 ```
 - If you set up the Arduino toolchain on another (e.g. Windows) machine, create ros_lib in an empty directory and then copy that folder into the library folder on the other machine
 ```
